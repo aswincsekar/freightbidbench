@@ -117,6 +117,7 @@ The core empirical artifact is the **latency-profit frontier**.
 | `reports/rollout_teacher_report.md` | First rollout-teacher comparison against myopic and bid-price policies. |
 | `reports/surrogate_cascade_report.md` | First value-distillation result and cascade latency-profit frontier. |
 | `reports/experimental_package_report.md` | Multi-seed experimental package report across mild, tight, and scarce capacity regimes. |
+| `reports/feasibility_ablation_standard_report.md` | Standard-preset feasibility ablation results and interpretation. |
 | `papers/freightbidbench_v02_benchmark_paper.md` | First benchmark-paper manuscript draft with v0.2 standard results. |
 | `papers/freightbidbench_v02_benchmark_paper.tex` | LaTeX version of the benchmark-paper draft. |
 | `papers/references.bib` | BibTeX references for the benchmark-paper draft. |
