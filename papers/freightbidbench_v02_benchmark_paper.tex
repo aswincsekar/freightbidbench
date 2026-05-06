@@ -1,0 +1,363 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{longtable}
+
+\title{FreightBidBench: A Public-Calibrated Benchmark for Real-Time Truckload Bid Acceptance Under Operational Feasibility Constraints}
+\author{Aswin Sekar}
+\date{Draft v0.2.0 -- May 6, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Truckload carriers and brokers must make accept/reject decisions under tight
+latency constraints, uncertain future demand, and operational feasibility
+constraints. Existing academic formulations often study dynamic fleet
+management or stochastic vehicle routing, but reproducible public benchmarks
+for real-time truckload bid evaluation remain limited. We introduce
+FreightBidBench, a public-calibrated synthetic benchmark built from FAF
+freight-flow structure and USDA AMS truck-rate reports. FreightBidBench
+evaluates policies in closed loop: accepted loads move trucks through the
+network, consume driver availability, and affect future opportunity cost.
+Version 0.2 adds individual truck state, pickup reach time, pickup and delivery
+windows, simplified hours-of-service clocks, and stochastic shipper/receiver
+yard delays. The benchmark reports profit, latency, rollout-call share,
+infeasible accept attempts, HOS rest hours, deadhead miles, yard-delay hours,
+and profit retention relative to a finite rollout teacher. We provide a
+dependency-free reference runner, manifest format, baseline policies, and
+latency-profit frontier outputs.
+\end{abstract}
+
+\section{Introduction}
+
+Real-time truckload bid acceptance is a high-pressure sequential decision
+problem. A carrier can accept a load that looks profitable immediately but
+sends a truck into a weak future market, violates pickup feasibility, or
+consumes driver hours needed for a better future load. Conversely, rejecting a
+low-margin load can be costly when the destination improves fleet positioning.
+
+The main obstacle to reproducible research in this setting is not only model
+choice. It is the lack of a public benchmark that combines stochastic demand,
+closed-loop fleet state, bid-evaluation latency, and operational feasibility.
+Private tender data is rarely shareable. Production dispatch systems are
+complex and unavailable to most researchers.
+
+FreightBidBench addresses this gap with a public-calibrated benchmark rather
+than a claim of production-grade simulation. The purpose is to create a common
+testbed where researchers can compare policies on the same stochastic freight
+environment and report the same latency-profit metrics.
+
+\section{Contributions}
+
+This paper makes five contributions.
+
+\begin{enumerate}
+  \item We introduce FreightBidBench, a reproducible public-calibrated
+  benchmark for real-time truckload bid acceptance.
+  \item We define a closed-loop synthetic freight environment calibrated from
+  public FAF and USDA-derived inputs.
+  \item We add a v0.2 operational feasibility layer with individual trucks,
+  pickup reach time, pickup/delivery appointment windows, simplified HOS
+  clocks, and stochastic yard delays.
+  \item We provide reference policies: myopic margin, bid-price heuristic,
+  linear rollout-label surrogate, selective surrogate/rollout cascade, and
+  finite rollout teacher.
+  \item We define benchmark reporting rules: seed protocol, manifest,
+  latency-profit frontier, feasibility metrics, and confidence intervals.
+\end{enumerate}
+
+\section{Related Work}
+
+\paragraph{Dynamic truckload acceptance and fleet management.}
+Dynamic truckload routing and load acceptance has long been recognized as an
+online, state-dependent decision problem. Kim, Mahmassani, and Jaillet study
+dynamic load acceptance and rejection decisions for large-fleet truckload
+operations with time windows and priority demand \citep{kim2004dynamic}.
+Simao et al. show how approximate dynamic programming can estimate marginal
+driver values in large-scale truckload fleet management \citep{simao2009adp}.
+FreightBidBench builds on this tradition but changes the artifact: instead of
+proposing one dispatch method, it provides a benchmark where future-value
+policies, rollout teachers, and fast approximations can be compared under the
+same stochastic seeds and latency measurements.
+
+\paragraph{Dynamic and stochastic vehicle routing.}
+Surveys by Pillac et al. and Ritzinger et al. describe the broader dynamic and
+stochastic vehicle-routing literature, including the role of information
+evolution and the distinction between online computation and offline policy
+construction \citep{pillac2013review,ritzinger2016survey}. Ulmer et al.
+combine offline value function approximation with online rollout for dynamic
+routing with stochastic requests \citep{ulmer2019offline}, while Ulmer and
+Thomas study value-function approximations for dynamic customer acceptance in
+delivery routing \citep{ulmer2020meso}. These papers motivate
+FreightBidBench's finite rollout teacher and surrogate baselines. The
+benchmark gap is that truckload bid evaluation also requires public
+calibration, fleet repositioning, operational feasibility, and latency-profit
+reporting.
+
+\paragraph{Learning-augmented optimization.}
+Recent work uses learned models to speed up routing and stochastic
+optimization. Nazari et al. and Kool et al. show that neural policies can
+learn routing heuristics with fast inference after training
+\citep{nazari2018rlvrp,kool2019attention}. Patel et al. approximate expensive
+two-stage stochastic-programming value functions with neural surrogates
+\citep{patel2022neur2sp}. Derrow-Pinion et al. demonstrate graph neural
+networks for large-scale transportation ETA prediction
+\citep{derrowpinion2021eta}. These works support future FreightBidBench
+submissions, but the benchmark contribution is not a neural architecture. It is
+a reproducible environment and reporting protocol for closed-loop truckload bid
+evaluation.
+
+\paragraph{Public freight data and feasibility rules.}
+FreightBidBench uses the Freight Analysis Framework as a public freight-flow
+backbone \citep{btsfaf5} and USDA AMS Specialty Crops National Truck Rate
+Reports for refrigerated truck-rate and availability signals
+\citep{usdafvwtrk}. The v0.2 feasibility layer uses a simplified
+property-carrying HOS abstraction based on FMCSA's 11-hour driving limit,
+14-hour driving window, and 10-hour off-duty reset summary \citep{fmcsa_hos}.
+These data sources make the benchmark reproducible while also defining its
+limits: the generated tenders are synthetic and public-calibrated, not private
+carrier histories.
+
+\section{Benchmark Design}
+
+\subsection{Decision Problem}
+
+At each decision epoch, the environment tenders a candidate load. A policy
+chooses accept or reject. If accepted, the benchmark attempts to assign a
+feasible truck. If no feasible truck exists, the accepted load creates a
+no-truck or infeasible outcome. If feasible, the truck moves to the destination
+and becomes available after pickup, linehaul, delivery, yard delays, and
+required HOS rest.
+
+\subsection{State}
+
+The v0.2 state includes the candidate load origin/destination, load price,
+direct cost, lane distance, public-calibrated lane intensity, state-level
+future-value features, individual truck locations, truck availability times,
+simplified HOS drive and duty clocks, pickup and delivery appointment windows,
+pickup deadhead time, and yard-delay realizations.
+
+\subsection{Reward}
+
+For accepted feasible loads, profit is
+\[
+  \mathrm{profit} = \mathrm{price} - \mathrm{direct\ cost}
+  - \mathrm{pickup\ deadhead\ cost} - \mathrm{yard\ delay\ cost}.
+\]
+Rejected loads receive zero immediate reward and preserve fleet state.
+
+\section{Public Calibration}
+
+FreightBidBench uses FAF state-level freight flows to seed
+origin-destination intensity and regional imbalance. It uses USDA AMS FVWTRK
+truck-rate reports to seed refrigerated truckload rates and availability
+categories. The benchmark does not claim that generated loads are production
+tenders. Instead, public data anchors broad flow, rate, and scarcity structure
+so the benchmark is reproducible and inspectable.
+
+\begin{table}[t]
+\centering
+\caption{Public calibration inputs used in FreightBidBench v0.2.}
+\begin{tabular}{p{0.20\linewidth}p{0.25\linewidth}p{0.24\linewidth}p{0.22\linewidth}}
+\toprule
+Source & Benchmark use & Fields used & Main limitation \\
+\midrule
+FAF5 state freight flows & OD intensity and regional imbalance & Tons,
+ton-miles, origin state, destination state, mode & Annual aggregate, not
+tender-level \\
+USDA AMS FVWTRK & Reefer rate and scarcity seed & Spot truckload rates,
+destination cities, truck availability categories & Narrow equipment and
+commodity coverage \\
+FMCSA HOS summary & Simplified feasibility clock & 11-hour drive, 14-hour
+duty, 10-hour reset & Simplified; omits split sleeper, recap, and home-time \\
+\bottomrule
+\end{tabular}
+\label{tab:calibration}
+\end{table}
+
+\section{Operational Feasibility Layer}
+
+Version 0.2 adds a first feasibility layer: individual truck state, pickup
+reach, pickup and delivery appointment windows, simplified HOS clocks, and
+stochastic yard delays. This layer is intentionally simpler than a full dispatch
+simulator. It excludes road closures, route-level traffic, split sleeper rules,
+driver home time, team drivers, and maintenance.
+
+\section{Reference Policies}
+
+FreightBidBench includes five reference policy families. The myopic margin
+policy accepts when immediate margin is non-negative. The bid-price heuristic
+accepts when immediate margin plus destination-origin future-value delta clears
+zero. The linear surrogate trains a dependency-free ridge linear model on
+offline rollout incremental-value labels. The selective cascade uses the
+surrogate for most loads and escalates to rollout near the decision boundary or
+when truck supply is scarce. The finite rollout teacher evaluates accept and
+reject branches using common-random-number stochastic future simulations and a
+bid-price base policy. The teacher is a stochastic benchmark, not an oracle.
+
+\section{Metrics}
+
+Primary metrics are closed-loop profit, profit retention versus rollout
+teacher, mean and p95 decision latency, and rollout-call share for cascades.
+Feasibility metrics are infeasible accept attempts, pickup-window misses,
+delivery-window misses, no-truck outcomes, deadhead miles, HOS rest hours, and
+yard-delay hours. Statistical reporting includes seed count, train/eval seed
+pairs, mean, sample standard deviation, 95 percent confidence intervals, and
+the full benchmark manifest.
+
+\section{Experimental Protocol}
+
+FreightBidBench v0.2 defines three scenarios: \texttt{mild}, \texttt{tight},
+and \texttt{scarce}. The \texttt{mild} regime is intentionally easy so that
+myopic policies can be competitive. The \texttt{tight} and \texttt{scarce}
+regimes increase the value of future-aware decisions.
+
+\begin{table}[t]
+\centering
+\caption{Benchmark presets.}
+\begin{tabular}{lll}
+\toprule
+Preset & Use & Configuration \\
+\midrule
+\texttt{smoke} & Correctness check & One seed pair, tight scenario, short horizon sample \\
+\texttt{standard} & Local development result & Three seed pairs across all scenarios \\
+\texttt{paper} & Main paper table & Ten seed pairs across all scenarios \\
+\bottomrule
+\end{tabular}
+\label{tab:presets}
+\end{table}
+
+The standard run can be reproduced with:
+\begin{verbatim}
+python3 scripts/run_freightbidbench.py --preset standard \
+  --output-dir benchmark_runs/standard_v02
+\end{verbatim}
+
+\section{Results}
+
+The current v0.2 standard run used three train/eval seed pairs across the
+\texttt{mild}, \texttt{tight}, and \texttt{scarce} scenarios. It used 600
+rollout-label decisions per train/eval stream and evaluated the full 72-hour
+online horizon. The run wrote 99 seed-level policy rows, 9 static-fit rows, 33
+aggregate policy rows, and 21 cascade-frontier rows. Total runtime was 1,224.07
+seconds.
+
+\subsection{Offline Label Fit}
+
+The simple linear surrogate is intentionally weak under the v0.2 feasibility
+layer. Held-out accept/reject agreement was 58.8 percent in \texttt{mild},
+60.9 percent in \texttt{tight}, and 68.3 percent in \texttt{scarce}. This is
+useful for the benchmark paper: the reference surrogate is a baseline, not the
+contribution.
+
+\subsection{Policy Results}
+
+\begin{table}[t]
+\centering
+\caption{FreightBidBench v0.2 standard policy results. Profit, latency, and
+feasibility metrics are seed means over three train/eval seed pairs. Retention
+is measured against the finite rollout teacher in the same scenario.}
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+Scenario & Policy & Profit & Retention & Latency ms & Infeasible & HOS h \\
+\midrule
+\texttt{mild} & Myopic & \$1,082,891 & 101.7\% & 0.000 & 323.7 & 2,053 \\
+\texttt{mild} & Bid price & \$1,083,424 & 101.8\% & 0.001 & 312.0 & 2,050 \\
+\texttt{mild} & Linear surrogate & \$917,369 & 86.3\% & 0.004 & 112.3 & 1,540 \\
+\texttt{mild} & Cascade +/- \$500 & \$976,891 & 91.9\% & 15.394 & 76.3 & 1,627 \\
+\texttt{mild} & Rollout teacher & \$1,064,003 & 100.0\% & 43.857 & 0.0 & 1,840 \\
+\texttt{tight} & Myopic & \$866,894 & 92.0\% & 0.000 & 546.7 & 1,680 \\
+\texttt{tight} & Bid price & \$866,894 & 92.0\% & 0.001 & 533.7 & 1,680 \\
+\texttt{tight} & Linear surrogate & \$739,135 & 78.5\% & 0.004 & 87.3 & 1,217 \\
+\texttt{tight} & Cascade +/- \$500 & \$812,794 & 86.3\% & 10.601 & 34.3 & 1,363 \\
+\texttt{tight} & Rollout teacher & \$942,219 & 100.0\% & 27.373 & 0.0 & 1,753 \\
+\texttt{scarce} & Myopic & \$718,085 & 94.8\% & 0.000 & 754.3 & 1,377 \\
+\texttt{scarce} & Bid price & \$718,085 & 94.8\% & 0.001 & 740.0 & 1,377 \\
+\texttt{scarce} & Linear surrogate & \$487,441 & 64.4\% & 0.004 & 40.3 & 813 \\
+\texttt{scarce} & Cascade +/- \$500 & \$577,343 & 76.3\% & 7.087 & 0.0 & 950 \\
+\texttt{scarce} & Rollout teacher & \$757,682 & 100.0\% & 16.751 & 0.0 & 1,403 \\
+\bottomrule
+\end{tabular}
+\label{tab:results}
+\end{table}
+
+Two findings matter for the benchmark paper. First, feasibility metrics are not
+secondary bookkeeping: myopic and bid-price policies create hundreds of
+infeasible accept attempts in the v0.2 standard run. Second, rollout is much
+slower under feasibility, with mean latency from 16.751 ms to 43.857 ms across
+scenarios. This creates a clear latency-quality benchmark for future methods.
+
+\subsection{Cascade Frontier}
+
+The cascade frontier shows the tradeoff between rollout-call share and profit
+retention. At the widest tested band, the cascade reached 97.1 percent
+retention in \texttt{mild}, 91.8 percent in \texttt{tight}, and 90.5 percent
+in \texttt{scarce}. The result is not a final method claim; it shows that the
+benchmark can expose meaningful frontier differences across scenarios.
+
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.88\linewidth}
+\centering
+Generated SVG: \texttt{benchmark\_runs/standard\_v02/figures/profit\_retention\_by\_policy.svg}
+\end{minipage}}
+\caption{Profit retention by policy.}
+\label{fig:profit-retention}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.88\linewidth}
+\centering
+Generated SVG: \texttt{benchmark\_runs/standard\_v02/figures/latency\_profit\_frontier.svg}
+\end{minipage}}
+\caption{Latency-profit frontier.}
+\label{fig:latency-frontier}
+\end{figure}
+
+\section{Discussion}
+
+The central benchmark claim is that feasibility materially changes the
+accept/reject problem. A policy that looks attractive under aggregate
+state-level availability can create pickup-window misses, excess HOS rest, or
+yard-delay exposure once individual truck feasibility is considered.
+
+The latency result is also important: operational feasibility increases rollout
+runtime. This makes FreightBidBench useful for studying selective evaluation,
+surrogates, and other learning-augmented acceleration methods.
+
+\section{Limitations}
+
+FreightBidBench v0.2 is not a production dispatch simulator. It uses synthetic
+loads, public calibration, simplified HOS clocks, state-level geography, and
+reference Python latency. It does not model road closures, traffic, weather,
+team drivers, split sleeper rules, maintenance, customer-specific facilities,
+or private tender distributions.
+
+\section{Reproducibility}
+
+The benchmark release is designed around command-line reproduction rather than
+manual notebook execution. Every benchmark run writes a manifest containing the
+benchmark version, command, Python version, source inputs, scenarios, seed
+pairs, policies, cascade bands, label limit, evaluation load limit,
+feasibility-layer version, output file paths, and row counts. Benchmark
+submissions should include the manifest and all summary CSVs.
+
+\section{Conclusion}
+
+FreightBidBench provides a public, reproducible testbed for latency-aware
+truckload bid acceptance. Its value is not that it solves the problem, but that
+it gives researchers a shared environment where closed-loop profit, latency,
+and operational feasibility can be compared under identical stochastic seeds.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

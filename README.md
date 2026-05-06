@@ -1,4 +1,58 @@
-# Faster Planning Research Notes
+# FreightBidBench
+
+FreightBidBench is a public-calibrated synthetic benchmark for real-time
+truckload bid acceptance under closed-loop fleet dynamics and operational
+feasibility constraints.
+
+The current release target is `freightbidbench-v0.2`: individual truck state,
+pickup reach time, pickup and delivery windows, simplified HOS clocks, and
+stochastic pickup/dropoff yard delays.
+
+## Quickstart
+
+FreightBidBench has no third-party Python runtime dependencies. Use Python 3.10
+or newer.
+
+```bash
+python3 scripts/run_freightbidbench.py --preset smoke --output-dir benchmark_runs/quickstart
+python3 scripts/plot_freightbidbench.py --run-dir benchmark_runs/quickstart
+```
+
+For the reference local result:
+
+```bash
+python3 scripts/run_freightbidbench.py --preset standard --output-dir benchmark_runs/standard_v02
+python3 scripts/plot_freightbidbench.py --run-dir benchmark_runs/standard_v02
+```
+
+Run tests:
+
+```bash
+python3 -m py_compile scripts/*.py
+python3 -m unittest discover -s tests
+```
+
+## Public Package Files
+
+| File | Purpose |
+| --- | --- |
+| `LICENSE` | MIT license for the benchmark code and documentation. |
+| `CITATION.cff` | Citation metadata for GitHub and Zenodo-style software citation. |
+| `pyproject.toml` | Project metadata; runtime dependency list is intentionally empty. |
+| `requirements.txt` | Notes that the benchmark uses only the Python standard library. |
+| `.github/workflows/ci.yml` | GitHub Actions compile, unit-test, and tiny benchmark smoke workflow. |
+| `docs/csv_column_dictionary.md` | Column dictionary for benchmark CSV outputs. |
+| `docs/github_release.md` | Suggested GitHub setup, topics, release, and tagging commands. |
+| `examples/quickstart.sh` | One-command smoke run plus figure generation. |
+
+## Paper Drafts
+
+| File | Purpose |
+| --- | --- |
+| `papers/freightbidbench_v02_benchmark_paper.md` | Markdown manuscript draft. |
+| `papers/freightbidbench_v02_benchmark_paper.tex` | LaTeX manuscript draft. |
+| `papers/references.bib` | BibTeX references. |
+| `papers/benchmark_release_checklist.md` | Release checklist and claim boundaries. |
 
 ## Current Direction
 
@@ -31,6 +85,7 @@ The core empirical artifact is the **latency-profit frontier**.
 | `scripts/run_experimental_package.py` | Runs the multi-seed, multi-scenario experimental package and writes aggregate policy/frontier tables. |
 | `scripts/freight_feasibility.py` | FreightBidBench v0.2 feasibility layer: individual trucks, pickup reach, appointment windows, HOS clocks, and yard delays. |
 | `scripts/run_freightbidbench.py` | Public FreightBidBench v0.2 CLI with smoke, standard, and paper presets. |
+| `tests/` | Standard-library tests for feasibility behavior and CLI smoke execution. |
 | `reports/initial_calibration_report.md` | First report from inspected FAF/USDA data. |
 | `reports/opportunity_cost_sanity_report.md` | First sanity report showing where myopic and opportunity-cost-aware decisions differ. |
 | `reports/closed_loop_baseline_report.md` | First closed-loop policy comparison across base and tight-capacity scenarios. |
@@ -38,6 +93,7 @@ The core empirical artifact is the **latency-profit frontier**.
 | `reports/surrogate_cascade_report.md` | First value-distillation result and cascade latency-profit frontier. |
 | `reports/experimental_package_report.md` | Multi-seed experimental package report across mild, tight, and scarce capacity regimes. |
 | `papers/freightbidbench_v02_benchmark_paper.md` | First benchmark-paper manuscript draft with v0.2 standard results. |
+| `papers/freightbidbench_v02_benchmark_paper.tex` | LaTeX version of the benchmark-paper draft. |
 | `papers/references.bib` | BibTeX references for the benchmark-paper draft. |
 | `papers/benchmark_release_checklist.md` | Release checklist and claim boundaries for FreightBidBench v0.2. |
 

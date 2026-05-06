@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use FreightBidBench, please cite this benchmark package."
+title: "FreightBidBench: A Public-Calibrated Benchmark for Real-Time Truckload Bid Acceptance"
+version: "0.2.0"
+date-released: "2026-05-06"
+type: software
+authors:
+  - family-names: "Sekar"
+    given-names: "Aswin"
+repository-code: "https://github.com/aswincsekar/freightbidbench"
+license: MIT
+keywords:
+  - freight
+  - truckload
+  - stochastic optimization
+  - benchmark
+  - approximate dynamic programming
+  - operations research
+abstract: >-
+  FreightBidBench is a public-calibrated synthetic benchmark for latency-aware
+  real-time truckload bid acceptance under closed-loop fleet dynamics and
+  operational feasibility constraints.

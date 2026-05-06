@@ -1,0 +1,2 @@
+# FreightBidBench v0.2 uses only the Python standard library at runtime.
+# Recommended interpreter: Python 3.10 or newer.

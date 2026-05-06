@@ -12,21 +12,24 @@
 - [x] Standard-run SVG figures
 - [x] Benchmark protocol doc: `FREIGHTBIDBENCH.md`
 - [x] First manuscript draft: `papers/freightbidbench_v02_benchmark_paper.md`
+- [x] LaTeX manuscript draft: `papers/freightbidbench_v02_benchmark_paper.tex`
 - [x] BibTeX references: `papers/references.bib`
 
 ## Before External Release
 
-- [ ] Decide repository layout for public release.
-- [ ] Add a top-level license.
-- [ ] Add a citation file, e.g. `CITATION.cff`.
-- [ ] Add a minimal CI smoke command:
+- [x] Decide repository layout for public release.
+- [x] Add a top-level license.
+- [x] Add a citation file, e.g. `CITATION.cff`.
+- [x] Add a minimal CI smoke command:
   `python3 scripts/run_freightbidbench.py --preset smoke --output-dir benchmark_runs/smoke_ci`
-- [ ] Add a clean-data note explaining which raw files can be redistributed.
+- [x] Add a clean-data note explaining which raw files can be redistributed.
 - [ ] Confirm processed CSVs are redistributable or provide regeneration scripts only.
-- [ ] Add figure captions to the final manuscript format.
+- [x] Add figure captions to the final manuscript format.
 - [ ] Tighten related work with final venue citation style.
 - [ ] Decide whether to run the heavier `paper` preset.
-- [ ] Add appendix with manifest schema and CSV column dictionary.
+- [x] Add appendix with manifest schema and CSV column dictionary.
+- [ ] Push to GitHub and confirm CI passes remotely.
+- [ ] Create `v0.2.0` tag after remote CI passes.
 
 ## Claims To Keep
 
