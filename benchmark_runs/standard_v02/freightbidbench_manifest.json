@@ -1,0 +1,102 @@
+{
+  "benchmark_version": "freightbidbench-v0.2",
+  "preset": "standard",
+  "preset_description": "Three seed pairs across mild, tight, and scarce regimes.",
+  "command": "scripts/run_freightbidbench.py --preset standard --output-dir benchmark_runs/standard_v02",
+  "python": "3.11.1",
+  "elapsed_seconds": 1224.07,
+  "source_inputs": {
+    "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
+    "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
+  },
+  "seed_pairs": [
+    {
+      "train_seed": 20260506,
+      "eval_seed": 20260507
+    },
+    {
+      "train_seed": 20260508,
+      "eval_seed": 20260509
+    },
+    {
+      "train_seed": 20260510,
+      "eval_seed": 20260511
+    }
+  ],
+  "policies": [
+    "myopic_margin",
+    "bid_price",
+    "surrogate_linear",
+    "rollout_teacher"
+  ],
+  "cascade_bands_dollars": [
+    0.0,
+    100.0,
+    250.0,
+    500.0,
+    700.0,
+    900.0,
+    1200.0
+  ],
+  "label_limit": 600,
+  "eval_load_limit": null,
+  "feasibility_layer": {
+    "enabled": true,
+    "version": "v0.2",
+    "features": [
+      "individual_truck_state",
+      "pickup_reach_time",
+      "pickup_delivery_windows",
+      "simplified_hos_11_14_10",
+      "stochastic_pickup_dropoff_yard_delays"
+    ]
+  },
+  "scenarios": {
+    "mild": {
+      "scenario": "freightbidbench_mild_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 12,
+      "fleet_size": 90,
+      "base_cost_per_mile": "2.95",
+      "fixed_load_cost": "250.00",
+      "value_scale_dollars": "2400.00"
+    },
+    "tight": {
+      "scenario": "freightbidbench_tight_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 14,
+      "fleet_size": 70,
+      "base_cost_per_mile": "3.10",
+      "fixed_load_cost": "250.00",
+      "value_scale_dollars": "3000.00"
+    },
+    "scarce": {
+      "scenario": "freightbidbench_scarce_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 16,
+      "fleet_size": 55,
+      "base_cost_per_mile": "3.20",
+      "fixed_load_cost": "250.00",
+      "value_scale_dollars": "3400.00"
+    }
+  },
+  "outputs": {
+    "policy_runs": "benchmark_runs/standard_v02/freightbidbench_policy_runs.csv",
+    "static_fit": "benchmark_runs/standard_v02/freightbidbench_static_label_fit.csv",
+    "policy_summary": "benchmark_runs/standard_v02/freightbidbench_policy_summary.csv",
+    "frontier_summary": "benchmark_runs/standard_v02/freightbidbench_frontier_summary.csv",
+    "manifest": "benchmark_runs/standard_v02/freightbidbench_manifest.json",
+    "report": "benchmark_runs/standard_v02/freightbidbench_report.md"
+  },
+  "row_counts": {
+    "policy_runs": 99,
+    "static_fit": 9,
+    "policy_summary": 33,
+    "frontier_summary": 21
+  },
+  "notes": [
+    "Synthetic load arrivals are calibrated from public FAF/USDA-derived processed inputs.",
+    "Rollout teacher is finite-lookahead and stochastic; it is not an oracle.",
+    "Latency is measured inside this Python reference implementation."
+  ]
+}

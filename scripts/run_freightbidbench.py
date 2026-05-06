@@ -1,0 +1,580 @@
+#!/usr/bin/env python3
+"""Run FreightBidBench v0.2.
+
+FreightBidBench is a public-calibrated synthetic benchmark for real-time
+truckload bid acceptance. The benchmark intentionally has no third-party Python
+dependencies: it uses the processed FAF/USDA seed lane table and the same
+closed-loop simulator used in the research probes.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT = SCRIPT_DIR.parents[0]
+sys.path.insert(0, str(SCRIPT_DIR))
+
+import run_closed_loop_baselines as base  # noqa: E402
+import run_experimental_package as exp  # noqa: E402
+import run_surrogate_cascade as sc  # noqa: E402
+
+
+BENCHMARK_VERSION = "freightbidbench-v0.2"
+DEFAULT_OUTPUT_DIR = ROOT / "benchmark_runs" / "current"
+DEFAULT_FIRST_SEED = 20260506
+
+SCENARIOS = {
+    "mild": base.Scenario(
+        "freightbidbench_mild_capacity",
+        horizon_hours=72,
+        loads_per_hour=12,
+        fleet_size=90,
+        base_cost_per_mile=2.95,
+        fixed_load_cost=250.0,
+        value_scale_dollars=2400.0,
+    ),
+    "tight": base.Scenario(
+        "freightbidbench_tight_capacity",
+        horizon_hours=72,
+        loads_per_hour=14,
+        fleet_size=70,
+        base_cost_per_mile=3.10,
+        fixed_load_cost=250.0,
+        value_scale_dollars=3000.0,
+    ),
+    "scarce": base.Scenario(
+        "freightbidbench_scarce_capacity",
+        horizon_hours=72,
+        loads_per_hour=16,
+        fleet_size=55,
+        base_cost_per_mile=3.20,
+        fixed_load_cost=250.0,
+        value_scale_dollars=3400.0,
+    ),
+}
+
+PRESETS = {
+    "smoke": {
+        "description": "One seed pair on the tight scenario for CI and quick checks.",
+        "scenarios": ["tight"],
+        "seed_count": 1,
+        "label_limit": 200,
+        "eval_load_limit": 250,
+    },
+    "standard": {
+        "description": "Three seed pairs across mild, tight, and scarce regimes.",
+        "scenarios": ["mild", "tight", "scarce"],
+        "seed_count": 3,
+        "label_limit": 600,
+        "eval_load_limit": None,
+    },
+    "paper": {
+        "description": "Ten seed pairs across all regimes for preliminary paper tables.",
+        "scenarios": ["mild", "tight", "scarce"],
+        "seed_count": 10,
+        "label_limit": 1200,
+        "eval_load_limit": None,
+    },
+}
+
+POLICIES = [
+    "myopic_margin",
+    "bid_price",
+    "surrogate_linear",
+    "rollout_teacher",
+]
+
+DEFAULT_CASCADE_BANDS = sc.CASCADE_FRONTIER_BANDS
+REPRESENTATIVE_CASCADE_BAND = sc.CASCADE_BAND_DOLLARS
+
+
+def relative(path: Path) -> str:
+    path = path.resolve()
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def parse_csv_names(value: str) -> list[str]:
+    names = [item.strip() for item in value.split(",") if item.strip()]
+    unknown = sorted(set(names) - set(SCENARIOS))
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown scenario(s): {', '.join(unknown)}; choose from {', '.join(SCENARIOS)}"
+        )
+    return names
+
+
+def parse_bands(value: str) -> list[float]:
+    try:
+        bands = [float(item.strip()) for item in value.split(",") if item.strip()]
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("cascade bands must be comma-separated numbers") from exc
+    if not bands:
+        raise argparse.ArgumentTypeError("at least one cascade band is required")
+    if any(band < 0 for band in bands):
+        raise argparse.ArgumentTypeError("cascade bands must be non-negative")
+    return sorted(bands)
+
+
+def seed_pairs_from_count(seed_count: int, first_seed: int) -> list[tuple[int, int]]:
+    if seed_count <= 0:
+        raise ValueError("seed_count must be positive")
+    return [(first_seed + 2 * idx, first_seed + 2 * idx + 1) for idx in range(seed_count)]
+
+
+def output_paths(output_dir: Path) -> dict[str, Path]:
+    return {
+        "policy_runs": output_dir / "freightbidbench_policy_runs.csv",
+        "static_fit": output_dir / "freightbidbench_static_label_fit.csv",
+        "policy_summary": output_dir / "freightbidbench_policy_summary.csv",
+        "frontier_summary": output_dir / "freightbidbench_frontier_summary.csv",
+        "manifest": output_dir / "freightbidbench_manifest.json",
+        "report": output_dir / "freightbidbench_report.md",
+    }
+
+
+def run_cell(
+    lanes: list[dict[str, str]],
+    scenario: base.Scenario,
+    train_seed: int,
+    eval_seed: int,
+    cascade_bands: list[float],
+    label_limit: int,
+    eval_load_limit: int | None,
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    start = time.perf_counter()
+    state_values = base.build_state_values(lanes, scenario)
+
+    previous_label_limit = sc.LABEL_DECISION_LIMIT
+    sc.LABEL_DECISION_LIMIT = label_limit
+    try:
+        train_labels, _, _ = sc.generate_rollout_labels(
+            lanes, scenario, train_seed, state_values
+        )
+        eval_labels, _, _ = sc.generate_rollout_labels(
+            lanes, scenario, eval_seed, state_values
+        )
+    finally:
+        sc.LABEL_DECISION_LIMIT = previous_label_limit
+    model = sc.train_linear_model(train_labels)
+    static_metrics = sc.evaluate_static_labels(model, eval_labels)
+
+    eval_loads = sc.generate_loads_with_seed(lanes, scenario, eval_seed)
+    if eval_load_limit is not None:
+        eval_loads = eval_loads[:eval_load_limit]
+    starting_fleet = sc.initial_fleet_with_seed(lanes, scenario, eval_seed)
+
+    policy_summaries: dict[str, dict[str, object]] = {}
+    for policy_name in POLICIES:
+        summary, _ = sc.simulate_policy(
+            policy_name,
+            eval_loads,
+            starting_fleet,
+            lanes,
+            scenario,
+            state_values,
+            model,
+            rollout_seed_offset=eval_seed,
+        )
+        policy_summaries[policy_name] = summary
+
+    rollout_profit = exp.as_float(policy_summaries["rollout_teacher"]["profit"])
+    policy_rows = [
+        exp.decorate_policy_row(
+            summary,
+            scenario,
+            train_seed,
+            eval_seed,
+            rollout_profit,
+            static_metrics,
+            len(train_labels),
+            len(eval_labels),
+            time.perf_counter() - start,
+        )
+        for summary in policy_summaries.values()
+    ]
+
+    for band in cascade_bands:
+        summary, _ = sc.simulate_policy(
+            "cascade_surrogate_rollout",
+            eval_loads,
+            starting_fleet,
+            lanes,
+            scenario,
+            state_values,
+            model,
+            cascade_band_dollars=band,
+            rollout_seed_offset=eval_seed,
+        )
+        policy_rows.append(
+            exp.decorate_policy_row(
+                summary,
+                scenario,
+                train_seed,
+                eval_seed,
+                rollout_profit,
+                static_metrics,
+                len(train_labels),
+                len(eval_labels),
+                time.perf_counter() - start,
+            )
+        )
+
+    fit_row = exp.static_fit_row(
+        scenario,
+        train_seed,
+        eval_seed,
+        static_metrics,
+        len(train_labels),
+        len(eval_labels),
+        time.perf_counter() - start,
+    )
+    return policy_rows, fit_row
+
+
+def representative_rows(
+    policy_summary_rows: list[dict[str, object]],
+    representative_band: float,
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for row in policy_summary_rows:
+        if row["policy"] != "cascade_surrogate_rollout":
+            rows.append(row)
+            continue
+        if abs(exp.as_float(row["cascade_band_dollars"]) - representative_band) < 1e-9:
+            rows.append(row)
+    return sorted(rows, key=exp.aggregate_sort_key)
+
+
+def write_report(
+    paths: dict[str, Path],
+    scenario_names: list[str],
+    scenarios: list[base.Scenario],
+    seed_pairs: list[tuple[int, int]],
+    cascade_bands: list[float],
+    policy_summary_rows: list[dict[str, object]],
+    frontier_rows: list[dict[str, object]],
+    static_summary_rows: list[dict[str, object]],
+    elapsed_seconds: float,
+    preset: str,
+    label_limit: int,
+    eval_load_limit: int | None,
+) -> None:
+    seed_text = ", ".join(f"{train}/{eval_}" for train, eval_ in seed_pairs)
+    scenario_lines = [
+        "| Key | Scenario | Horizon | Loads/Hour | Fleet | Cost/Mile | Value Scale |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for name, scenario in zip(scenario_names, scenarios):
+        scenario_lines.append(
+            f"| `{name}` | `{scenario.name}` | {scenario.horizon_hours}h | "
+            f"{scenario.loads_per_hour} | {scenario.fleet_size} | "
+            f"${scenario.base_cost_per_mile:.2f} | ${scenario.value_scale_dollars:,.0f} |"
+        )
+
+    static_lines = [
+        "| Scenario | Runs | Agreement | MAE | p90 Abs Error |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in static_summary_rows:
+        static_lines.append(
+            f"| `{row['scenario']}` | {row['n_runs']} | "
+            f"{exp.percent(row['mean_agreement'])} | {exp.money(row['mean_mae'])} | "
+            f"{exp.money(row['mean_p90_abs_error'])} |"
+        )
+
+    policy_lines = [
+        "| Scenario | Policy | Band | Mean Profit | Profit CI95 | Retention | Mean Latency ms | Rollout Share | Infeasible | HOS Rest h | Yard Delay h |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in representative_rows(policy_summary_rows, REPRESENTATIVE_CASCADE_BAND):
+        band = row["cascade_band_dollars"] or "-"
+        policy_lines.append(
+            f"| `{row['scenario']}` | `{row['policy']}` | {band} | "
+            f"{exp.money(row['mean_profit'])} | +/- {exp.money(row['ci95_profit_halfwidth'])} | "
+            f"{exp.percent(row['mean_profit_retention_vs_rollout'])} | "
+            f"{exp.as_float(row['mean_latency_ms']):.3f} | "
+            f"{exp.percent(row['mean_rollout_stage_share'])} | "
+            f"{exp.as_float(row.get('mean_infeasible', 0)):.1f} | "
+            f"{exp.as_float(row.get('mean_hos_rest_hours', 0)):,.0f} | "
+            f"{exp.as_float(row.get('mean_yard_delay_hours', 0)):,.0f} |"
+        )
+
+    frontier_lines = [
+        "| Scenario | Band +/- $ | Retention | Mean Profit | Mean Latency ms | Rollout Share |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in frontier_rows:
+        frontier_lines.append(
+            f"| `{row['scenario']}` | {exp.as_float(row['cascade_band_dollars']):,.0f} | "
+            f"{exp.percent(row['mean_profit_retention_vs_rollout'])} | "
+            f"{exp.money(row['mean_profit'])} | {exp.as_float(row['mean_latency_ms']):.3f} | "
+            f"{exp.percent(row['mean_rollout_stage_share'])} |"
+        )
+
+    artifact_lines = "\n".join(
+        f"- `{relative(path)}`" for key, path in paths.items() if key != "report"
+    )
+
+    content = f"""# FreightBidBench v0.2 Report
+
+## Configuration
+
+- Benchmark version: `{BENCHMARK_VERSION}`
+- Preset: `{preset}` ({PRESETS[preset]['description']})
+- Seed pairs: {seed_text}
+- Policies: {", ".join(f"`{policy}`" for policy in POLICIES)}
+- Cascade bands: {", ".join(f"+/- ${band:,.0f}" for band in cascade_bands)}
+- Rollout labels per train/eval stream: up to {label_limit:,}
+- Evaluation load limit: {eval_load_limit if eval_load_limit is not None else "full horizon"}
+- Feasibility layer: pickup reach time, pickup/delivery windows, HOS clocks, and stochastic yard delays
+- Total runtime: {elapsed_seconds:.2f} seconds
+
+{chr(10).join(scenario_lines)}
+
+## Offline Label Fit
+
+{chr(10).join(static_lines)}
+
+## Policy Results
+
+The table reports seed-averaged closed-loop profit. The cascade row uses the
+representative +/- ${REPRESENTATIVE_CASCADE_BAND:,.0f} escalation band.
+
+{chr(10).join(policy_lines)}
+
+## Cascade Frontier
+
+{chr(10).join(frontier_lines)}
+
+## Output Files
+
+{artifact_lines}
+
+## Benchmark Notes
+
+FreightBidBench v0.2 is a public-calibrated synthetic benchmark. It is meant to
+test closed-loop bid-evaluation policies under controlled stochastic freight
+conditions, not to claim calibrated production-dollar performance.
+
+The finite rollout teacher is a stochastic benchmark, not an oracle. A policy
+can exceed 100% retention when it earns higher realized closed-loop profit than
+the finite-lookahead rollout teacher on the same seed average.
+"""
+    paths["report"].write_text(content, encoding="utf-8")
+
+
+def write_manifest(
+    paths: dict[str, Path],
+    preset: str,
+    scenario_names: list[str],
+    scenarios: list[base.Scenario],
+    seed_pairs: list[tuple[int, int]],
+    cascade_bands: list[float],
+    label_limit: int,
+    eval_load_limit: int | None,
+    elapsed_seconds: float,
+    row_counts: dict[str, int],
+) -> None:
+    manifest = {
+        "benchmark_version": BENCHMARK_VERSION,
+        "preset": preset,
+        "preset_description": PRESETS[preset]["description"],
+        "command": " ".join(sys.argv),
+        "python": sys.version.split()[0],
+        "elapsed_seconds": round(elapsed_seconds, 2),
+        "source_inputs": {
+            "lane_table": relative(base.LANES),
+            "state_imbalance_table": relative(base.IMBALANCE),
+        },
+        "seed_pairs": [
+            {"train_seed": train_seed, "eval_seed": eval_seed}
+            for train_seed, eval_seed in seed_pairs
+        ],
+        "policies": POLICIES,
+        "cascade_bands_dollars": cascade_bands,
+        "label_limit": label_limit,
+        "eval_load_limit": eval_load_limit,
+        "feasibility_layer": {
+            "enabled": True,
+            "version": "v0.2",
+            "features": [
+                "individual_truck_state",
+                "pickup_reach_time",
+                "pickup_delivery_windows",
+                "simplified_hos_11_14_10",
+                "stochastic_pickup_dropoff_yard_delays",
+            ],
+        },
+        "scenarios": {
+            name: exp.scenario_config_row(scenario)
+            for name, scenario in zip(scenario_names, scenarios)
+        },
+        "outputs": {key: relative(path) for key, path in paths.items()},
+        "row_counts": row_counts,
+        "notes": [
+            "Synthetic load arrivals are calibrated from public FAF/USDA-derived processed inputs.",
+            "Rollout teacher is finite-lookahead and stochastic; it is not an oracle.",
+            "Latency is measured inside this Python reference implementation.",
+        ],
+    }
+    paths["manifest"].write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Run FreightBidBench v0.2, a public-calibrated truckload bid benchmark."
+    )
+    parser.add_argument(
+        "--preset",
+        choices=sorted(PRESETS),
+        default="standard",
+        help="Benchmark preset. Use paper for a stronger multi-seed run.",
+    )
+    parser.add_argument(
+        "--scenarios",
+        type=parse_csv_names,
+        help="Comma-separated scenario subset: mild,tight,scarce. Overrides the preset scenario list.",
+    )
+    parser.add_argument(
+        "--seed-count",
+        type=int,
+        help="Number of train/eval seed pairs. Overrides the preset seed count.",
+    )
+    parser.add_argument(
+        "--first-seed",
+        type=int,
+        default=DEFAULT_FIRST_SEED,
+        help="First train seed; eval seeds are generated as train_seed + 1.",
+    )
+    parser.add_argument(
+        "--label-limit",
+        type=int,
+        help="Rollout-label decisions per train/eval stream. Overrides the preset label limit.",
+    )
+    parser.add_argument(
+        "--eval-load-limit",
+        type=int,
+        help="Limit evaluated online loads per scenario/seed. Defaults to preset value.",
+    )
+    parser.add_argument(
+        "--cascade-bands",
+        type=parse_bands,
+        help="Comma-separated cascade escalation bands in dollars.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for benchmark CSV, manifest, and report outputs.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    seed_count = args.seed_count or int(PRESETS[args.preset]["seed_count"])
+    if seed_count <= 0:
+        raise SystemExit("--seed-count must be positive")
+    label_limit = args.label_limit or int(PRESETS[args.preset]["label_limit"])
+    if label_limit <= 0:
+        raise SystemExit("--label-limit must be positive")
+    eval_load_limit = (
+        args.eval_load_limit
+        if args.eval_load_limit is not None
+        else PRESETS[args.preset]["eval_load_limit"]
+    )
+    if eval_load_limit is not None and eval_load_limit <= 0:
+        raise SystemExit("--eval-load-limit must be positive")
+
+    scenario_names = args.scenarios or list(PRESETS[args.preset]["scenarios"])
+    scenarios = [SCENARIOS[name] for name in scenario_names]
+    seed_pairs = seed_pairs_from_count(seed_count, args.first_seed)
+    cascade_bands = args.cascade_bands or list(DEFAULT_CASCADE_BANDS)
+    paths = output_paths(args.output_dir)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    start = time.perf_counter()
+    lanes = base.load_csv(base.LANES)
+    policy_rows: list[dict[str, object]] = []
+    static_rows: list[dict[str, object]] = []
+
+    for scenario_name, scenario in zip(scenario_names, scenarios):
+        for train_seed, eval_seed in seed_pairs:
+            print(
+                f"Running {scenario_name} train_seed={train_seed} eval_seed={eval_seed}",
+                flush=True,
+            )
+            cell_policy_rows, cell_static_row = run_cell(
+                lanes,
+                scenario,
+                train_seed,
+                eval_seed,
+                cascade_bands,
+                label_limit,
+                eval_load_limit,
+            )
+            policy_rows.extend(cell_policy_rows)
+            static_rows.append(cell_static_row)
+
+    policy_summary_rows = exp.aggregate_policy_rows(policy_rows)
+    static_summary_rows = exp.aggregate_static_rows(static_rows)
+    frontier_rows = exp.build_frontier_rows(policy_summary_rows)
+    elapsed_seconds = time.perf_counter() - start
+
+    sc.write_csv(paths["policy_runs"], policy_rows)
+    sc.write_csv(paths["static_fit"], static_rows)
+    sc.write_csv(paths["policy_summary"], policy_summary_rows)
+    sc.write_csv(paths["frontier_summary"], frontier_rows)
+    write_report(
+        paths,
+        scenario_names,
+        scenarios,
+        seed_pairs,
+        cascade_bands,
+        policy_summary_rows,
+        frontier_rows,
+        static_summary_rows,
+        elapsed_seconds,
+        args.preset,
+        label_limit,
+        eval_load_limit,
+    )
+    write_manifest(
+        paths,
+        args.preset,
+        scenario_names,
+        scenarios,
+        seed_pairs,
+        cascade_bands,
+        label_limit,
+        eval_load_limit,
+        elapsed_seconds,
+        {
+            "policy_runs": len(policy_rows),
+            "static_fit": len(static_rows),
+            "policy_summary": len(policy_summary_rows),
+            "frontier_summary": len(frontier_rows),
+        },
+    )
+
+    print(f"Wrote {relative(paths['report'])}")
+    for row in representative_rows(policy_summary_rows, REPRESENTATIVE_CASCADE_BAND):
+        print(
+            f"{row['scenario']} {row['policy']} band={row['cascade_band_dollars'] or '-'}: "
+            f"mean profit {exp.money(row['mean_profit'])}, "
+            f"retention {exp.percent(row['mean_profit_retention_vs_rollout'])}, "
+            f"mean latency {exp.as_float(row['mean_latency_ms']):.3f} ms"
+        )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,75 @@
+{
+  "benchmark_version": "freightbidbench-v0.2",
+  "preset": "smoke",
+  "preset_description": "One seed pair on the tight scenario for CI and quick checks.",
+  "command": "scripts/run_freightbidbench.py --preset smoke --output-dir benchmark_runs/smoke_v02_fast",
+  "python": "3.11.1",
+  "elapsed_seconds": 110.53,
+  "source_inputs": {
+    "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
+    "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
+  },
+  "seed_pairs": [
+    {
+      "train_seed": 20260506,
+      "eval_seed": 20260507
+    }
+  ],
+  "policies": [
+    "myopic_margin",
+    "bid_price",
+    "surrogate_linear",
+    "rollout_teacher"
+  ],
+  "cascade_bands_dollars": [
+    0.0,
+    100.0,
+    250.0,
+    500.0,
+    700.0,
+    900.0,
+    1200.0
+  ],
+  "label_limit": 200,
+  "feasibility_layer": {
+    "enabled": true,
+    "version": "v0.2",
+    "features": [
+      "individual_truck_state",
+      "pickup_reach_time",
+      "pickup_delivery_windows",
+      "simplified_hos_11_14_10",
+      "stochastic_pickup_dropoff_yard_delays"
+    ]
+  },
+  "scenarios": {
+    "tight": {
+      "scenario": "freightbidbench_tight_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 14,
+      "fleet_size": 70,
+      "base_cost_per_mile": "3.10",
+      "fixed_load_cost": "250.00",
+      "value_scale_dollars": "3000.00"
+    }
+  },
+  "outputs": {
+    "policy_runs": "benchmark_runs/smoke_v02_fast/freightbidbench_policy_runs.csv",
+    "static_fit": "benchmark_runs/smoke_v02_fast/freightbidbench_static_label_fit.csv",
+    "policy_summary": "benchmark_runs/smoke_v02_fast/freightbidbench_policy_summary.csv",
+    "frontier_summary": "benchmark_runs/smoke_v02_fast/freightbidbench_frontier_summary.csv",
+    "manifest": "benchmark_runs/smoke_v02_fast/freightbidbench_manifest.json",
+    "report": "benchmark_runs/smoke_v02_fast/freightbidbench_report.md"
+  },
+  "row_counts": {
+    "policy_runs": 11,
+    "static_fit": 1,
+    "policy_summary": 11,
+    "frontier_summary": 7
+  },
+  "notes": [
+    "Synthetic load arrivals are calibrated from public FAF/USDA-derived processed inputs.",
+    "Rollout teacher is finite-lookahead and stochastic; it is not an oracle.",
+    "Latency is measured inside this Python reference implementation."
+  ]
+}

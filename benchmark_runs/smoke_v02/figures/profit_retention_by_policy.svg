@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="560.0" y="34.0" font-family="Arial, sans-serif" font-size="22" text-anchor="middle" fill="#111827">Profit Retention by Scenario and Policy</text>
+<text x="560.0" y="56.0" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#111827">Representative cascade band: +/- $500</text>
+<line x1="80.0" y1="475.0" x2="1080.0" y2="475.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="70.0" y="479.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">75%</text>
+<line x1="80.0" y1="385.0" x2="1080.0" y2="385.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="70.0" y="389.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">85%</text>
+<line x1="80.0" y1="295.0" x2="1080.0" y2="295.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="70.0" y="299.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">95%</text>
+<line x1="80.0" y1="205.0" x2="1080.0" y2="205.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="70.0" y="209.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">105%</text>
+<line x1="80.0" y1="115.0" x2="1080.0" y2="115.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="70.0" y="119.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">115%</text>
+<line x1="80.0" y1="70.0" x2="80.0" y2="520.0" stroke="#475569" stroke-width="1"/>
+<line x1="80.0" y1="520.0" x2="1080.0" y2="520.0" stroke="#475569" stroke-width="1"/>
+<rect x="220.0" y="101.1" width="28.0" height="418.9" rx="2" fill="#64748b"/>
+<rect x="256.0" y="101.1" width="28.0" height="418.9" rx="2" fill="#0f766e"/>
+<rect x="292.0" y="255.1" width="28.0" height="264.9" rx="2" fill="#b45309"/>
+<rect x="328.0" y="299.1" width="28.0" height="220.9" rx="2" fill="#2563eb"/>
+<rect x="364.0" y="250.0" width="28.0" height="270.0" rx="2" fill="#7c3aed"/>
+<text x="580.0" y="546.0" font-family="Arial, sans-serif" font-size="13" text-anchor="middle" fill="#111827">Tight</text>
+<rect x="80.0" y="566.0" width="14.0" height="14.0" rx="2" fill="#64748b"/>
+<text x="100.0" y="578.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Myopic</text>
+<rect x="270.0" y="566.0" width="14.0" height="14.0" rx="2" fill="#0f766e"/>
+<text x="290.0" y="578.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Bid price</text>
+<rect x="460.0" y="566.0" width="14.0" height="14.0" rx="2" fill="#b45309"/>
+<text x="480.0" y="578.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Linear surrogate</text>
+<rect x="650.0" y="566.0" width="14.0" height="14.0" rx="2" fill="#2563eb"/>
+<text x="670.0" y="578.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Cascade</text>
+<rect x="840.0" y="566.0" width="14.0" height="14.0" rx="2" fill="#7c3aed"/>
+<text x="860.0" y="578.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Rollout</text>
+</svg>

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Raw public downloads are reproducibility inputs, not source artifacts.
+data/raw/*
+!data/raw/README.md
+
+# Local logs and scratch outputs
+*.log
