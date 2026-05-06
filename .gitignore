@@ -21,3 +21,4 @@ data/raw/*
 benchmark_runs/current/
 benchmark_runs/ci_smoke/
 benchmark_runs/quickstart/
+papers/build/

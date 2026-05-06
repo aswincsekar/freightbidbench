@@ -54,6 +54,17 @@ python3 -m unittest discover -s tests
 | `papers/references.bib` | BibTeX references. |
 | `papers/benchmark_release_checklist.md` | Release checklist and claim boundaries. |
 
+Build the LaTeX draft:
+
+```bash
+cd papers
+mkdir -p build
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
+bibtex build/freightbidbench_v02_benchmark_paper
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
+```
+
 ## Current Direction
 
 The strongest v1 paper is:
