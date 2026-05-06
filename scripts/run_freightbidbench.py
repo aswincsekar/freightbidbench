@@ -22,6 +22,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import run_closed_loop_baselines as base  # noqa: E402
 import run_experimental_package as exp  # noqa: E402
+import freight_feasibility as feas  # noqa: E402
 import run_surrogate_cascade as sc  # noqa: E402
 
 
@@ -269,6 +270,18 @@ def write_report(
     eval_load_limit: int | None,
 ) -> None:
     seed_text = ", ".join(f"{train}/{eval_}" for train, eval_ in seed_pairs)
+    feasibility_features = feas.enabled_feature_names()
+    disabled_features = feas.config_to_dict()["disabled_features"]
+    feasibility_text = (
+        ", ".join(feasibility_features)
+        if feasibility_features
+        else "no operational feasibility features"
+    )
+    ablation_text = (
+        ", ".join(f"`{feature}`" for feature in disabled_features)
+        if disabled_features
+        else "none"
+    )
     scenario_lines = [
         "| Key | Scenario | Horizon | Loads/Hour | Fleet | Cost/Mile | Value Scale |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
@@ -335,7 +348,8 @@ def write_report(
 - Cascade bands: {", ".join(f"+/- ${band:,.0f}" for band in cascade_bands)}
 - Rollout labels per train/eval stream: up to {label_limit:,}
 - Evaluation load limit: {eval_load_limit if eval_load_limit is not None else "full horizon"}
-- Feasibility layer: pickup reach time, pickup/delivery windows, HOS clocks, and stochastic yard delays
+- Feasibility layer: {feasibility_text}
+- Disabled feasibility features: {ablation_text}
 - Total runtime: {elapsed_seconds:.2f} seconds
 
 {chr(10).join(scenario_lines)}
@@ -404,15 +418,8 @@ def write_manifest(
         "label_limit": label_limit,
         "eval_load_limit": eval_load_limit,
         "feasibility_layer": {
-            "enabled": True,
-            "version": "v0.2",
-            "features": [
-                "individual_truck_state",
-                "pickup_reach_time",
-                "pickup_delivery_windows",
-                "simplified_hos_11_14_10",
-                "stochastic_pickup_dropoff_yard_delays",
-            ],
+            "individual_truck_state": True,
+            **feas.config_to_dict(),
         },
         "scenarios": {
             name: exp.scenario_config_row(scenario)
@@ -476,11 +483,39 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OUTPUT_DIR,
         help="Directory for benchmark CSV, manifest, and report outputs.",
     )
+    parser.add_argument(
+        "--disable-pickup-reach",
+        action="store_true",
+        help="Ablation: remove origin-market pickup deadhead time and cost.",
+    )
+    parser.add_argument(
+        "--disable-time-windows",
+        action="store_true",
+        help="Ablation: do not enforce pickup and delivery appointment windows.",
+    )
+    parser.add_argument(
+        "--disable-hos",
+        action="store_true",
+        help="Ablation: do not enforce simplified 11/14/10 HOS clocks.",
+    )
+    parser.add_argument(
+        "--disable-yard-delays",
+        action="store_true",
+        help="Ablation: remove stochastic pickup/dropoff yard delays and delay cost.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    feas.set_config(
+        feas.config_from_disabled(
+            disable_pickup_reach=args.disable_pickup_reach,
+            disable_time_windows=args.disable_time_windows,
+            disable_hos=args.disable_hos,
+            disable_yard_delays=args.disable_yard_delays,
+        )
+    )
     seed_count = args.seed_count or int(PRESETS[args.preset]["seed_count"])
     if seed_count <= 0:
         raise SystemExit("--seed-count must be positive")

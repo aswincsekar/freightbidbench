@@ -42,6 +42,8 @@ python3 -m unittest discover -s tests
 | `requirements.txt` | Notes that the benchmark uses only the Python standard library. |
 | `.github/workflows/ci.yml` | GitHub Actions compile, unit-test, and tiny benchmark smoke workflow. |
 | `docs/csv_column_dictionary.md` | Column dictionary for benchmark CSV outputs. |
+| `docs/ablation_protocol.md` | Local ablation protocol for HOS, appointment windows, deadhead, and yard delays. |
+| `docs/adding_policies.md` | Minimal policy-extension contract. |
 | `docs/github_release.md` | Suggested GitHub setup, topics, release, and tagging commands. |
 | `examples/quickstart.sh` | One-command smoke run plus figure generation. |
 
@@ -63,6 +65,17 @@ pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freight
 bibtex build/freightbidbench_v02_benchmark_paper
 pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
 pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
+```
+
+Run a local feasibility ablation smoke suite:
+
+```bash
+python3 scripts/run_feasibility_ablation_suite.py \
+  --preset smoke \
+  --label-limit 20 \
+  --eval-load-limit 50 \
+  --cascade-bands 0,500 \
+  --output-dir benchmark_runs/feasibility_ablations_smoke
 ```
 
 ## Current Direction
@@ -96,6 +109,7 @@ The core empirical artifact is the **latency-profit frontier**.
 | `scripts/run_experimental_package.py` | Runs the multi-seed, multi-scenario experimental package and writes aggregate policy/frontier tables. |
 | `scripts/freight_feasibility.py` | FreightBidBench v0.2 feasibility layer: individual trucks, pickup reach, appointment windows, HOS clocks, and yard delays. |
 | `scripts/run_freightbidbench.py` | Public FreightBidBench v0.2 CLI with smoke, standard, and paper presets. |
+| `scripts/run_feasibility_ablation_suite.py` | Wrapper for local feasibility ablation runs. |
 | `tests/` | Standard-library tests for feasibility behavior and CLI smoke execution. |
 | `reports/initial_calibration_report.md` | First report from inspected FAF/USDA data. |
 | `reports/opportunity_cost_sanity_report.md` | First sanity report showing where myopic and opportunity-cost-aware decisions differ. |

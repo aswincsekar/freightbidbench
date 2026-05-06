@@ -4,6 +4,9 @@ from scripts import freight_feasibility as feas
 
 
 class FeasibilityTests(unittest.TestCase):
+    def tearDown(self):
+        feas.reset_config()
+
     def test_hos_rest_is_inserted_after_drive_limit(self):
         time, drive_used, duty_used, rest_hours = feas.add_drive(0.0, 12.0, 0.0, 0.0)
 
@@ -67,6 +70,56 @@ class FeasibilityTests(unittest.TestCase):
         self.assertFalse(result.accepted)
         self.assertEqual(result.outcome, "pickup_window_miss")
         self.assertEqual(len(fleet["CA"]), 1)
+
+    def test_no_hos_ablation_removes_rest(self):
+        feas.set_config(feas.config_from_disabled(disable_hos=True))
+
+        time, drive_used, duty_used, rest_hours = feas.add_drive(0.0, 12.0, 0.0, 0.0)
+
+        self.assertAlmostEqual(time, 12.0)
+        self.assertAlmostEqual(drive_used, 0.0)
+        self.assertAlmostEqual(duty_used, 0.0)
+        self.assertAlmostEqual(rest_hours, 0.0)
+
+    def test_no_time_window_ablation_allows_late_pickup(self):
+        feas.set_config(feas.config_from_disabled(disable_time_windows=True))
+        fleet = {"CA": [feas.TruckState("truck-1", "CA", 0.0)]}
+        load = {
+            "origin_state": "CA",
+            "destination_state": "TX",
+            "price": 2000.0,
+            "direct_cost": 1000.0,
+            "pickup_deadhead_hours": 1.0,
+            "pickup_deadhead_miles": 38.0,
+            "linehaul_drive_hours": 2.0,
+            "pickup_earliest": 0.0,
+            "pickup_latest": 0.5,
+            "delivery_earliest": 3.0,
+            "delivery_latest": 4.0,
+            "pickup_yard_delay_hours": 0.0,
+            "dropoff_yard_delay_hours": 0.0,
+        }
+
+        result = feas.apply_accept(fleet, load, decision_hour=0.0)
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.outcome, "accept")
+
+    def test_no_pickup_reach_ablation_removes_deadhead_cost(self):
+        feas.set_config(feas.config_from_disabled(disable_pickup_reach=True))
+        load = {
+            "price": 2000.0,
+            "direct_cost": 1000.0,
+            "base_cost_per_mile": 3.0,
+            "pickup_deadhead_miles": 100.0,
+            "pickup_yard_delay_hours": 0.0,
+            "dropoff_yard_delay_hours": 0.0,
+        }
+
+        profit, extra_cost = feas.realized_profit(load)
+
+        self.assertAlmostEqual(profit, 1000.0)
+        self.assertAlmostEqual(extra_cost, 0.0)
 
 
 if __name__ == "__main__":

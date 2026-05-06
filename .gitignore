@@ -19,6 +19,8 @@ data/raw/*
 # Local logs and scratch outputs
 *.log
 benchmark_runs/current/
-benchmark_runs/ci_smoke/
+benchmark_runs/ci_smoke*/
 benchmark_runs/quickstart/
+benchmark_runs/feasibility_ablations*/
+benchmark_runs/policy_smoke/
 papers/build/

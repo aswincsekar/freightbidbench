@@ -29,6 +29,9 @@
 - [ ] Decide whether to run the heavier `paper` preset.
 - [x] Add appendix with manifest schema and CSV column dictionary.
 - [x] Install local LaTeX toolchain and compile the draft once.
+- [x] Add local feasibility ablation flags and smoke wrapper.
+- [x] Add policy-extension documentation.
+- [x] Resolve current LaTeX citation and layout warnings.
 - [ ] Push to GitHub and confirm CI passes remotely.
 - [ ] Create `v0.2.0` tag after remote CI passes.
 

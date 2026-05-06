@@ -113,6 +113,25 @@ python3 scripts/run_freightbidbench.py \
 
 All commands are run from the `faster_planning/` directory.
 
+Feasibility ablation flags:
+
+```bash
+python3 scripts/run_freightbidbench.py \
+  --preset smoke \
+  --disable-hos \
+  --output-dir benchmark_runs/no_hos_smoke
+```
+
+Available ablations:
+
+- `--disable-pickup-reach`
+- `--disable-time-windows`
+- `--disable-hos`
+- `--disable-yard-delays`
+
+For a local wrapper that runs all ablations and combines summaries, see
+`docs/ablation_protocol.md`.
+
 ## Output Files
 
 Each run writes:

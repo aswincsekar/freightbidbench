@@ -27,6 +27,14 @@ YARD_DELAY_COST_PER_HOUR = 65.0
 DEADHEAD_COST_FACTOR = 0.90
 
 
+@dataclass(frozen=True)
+class FeasibilityConfig:
+    enable_pickup_reach: bool = True
+    enable_time_windows: bool = True
+    enable_hos: bool = True
+    enable_yard_delays: bool = True
+
+
 @dataclass
 class TruckState:
     truck_id: str
@@ -63,6 +71,76 @@ class ScheduleResult:
     hos_rest_hours: float = 0.0
     pickup_start: float = 0.0
     delivery_arrival: float = 0.0
+
+
+DEFAULT_CONFIG = FeasibilityConfig()
+ACTIVE_CONFIG = DEFAULT_CONFIG
+
+
+def set_config(config: FeasibilityConfig) -> None:
+    global ACTIVE_CONFIG
+    ACTIVE_CONFIG = config
+
+
+def reset_config() -> None:
+    set_config(DEFAULT_CONFIG)
+
+
+def get_config() -> FeasibilityConfig:
+    return ACTIVE_CONFIG
+
+
+def config_from_disabled(
+    disable_pickup_reach: bool = False,
+    disable_time_windows: bool = False,
+    disable_hos: bool = False,
+    disable_yard_delays: bool = False,
+) -> FeasibilityConfig:
+    return FeasibilityConfig(
+        enable_pickup_reach=not disable_pickup_reach,
+        enable_time_windows=not disable_time_windows,
+        enable_hos=not disable_hos,
+        enable_yard_delays=not disable_yard_delays,
+    )
+
+
+def config_to_dict(config: FeasibilityConfig | None = None) -> dict[str, object]:
+    active = config or ACTIVE_CONFIG
+    disabled = [
+        name
+        for name, enabled in [
+            ("pickup_reach_time", active.enable_pickup_reach),
+            ("pickup_delivery_windows", active.enable_time_windows),
+            ("simplified_hos_11_14_10", active.enable_hos),
+            ("stochastic_pickup_dropoff_yard_delays", active.enable_yard_delays),
+        ]
+        if not enabled
+    ]
+    return {
+        "version": "v0.2",
+        "enabled": True,
+        "features": {
+            "pickup_reach_time": active.enable_pickup_reach,
+            "pickup_delivery_windows": active.enable_time_windows,
+            "simplified_hos_11_14_10": active.enable_hos,
+            "stochastic_pickup_dropoff_yard_delays": active.enable_yard_delays,
+        },
+        "disabled_features": disabled,
+    }
+
+
+def enabled_feature_names(config: FeasibilityConfig | None = None) -> list[str]:
+    active = config or ACTIVE_CONFIG
+    return [
+        name
+        for name, enabled in [
+            ("pickup reach time", active.enable_pickup_reach),
+            ("pickup/delivery windows", active.enable_time_windows),
+            ("HOS clocks", active.enable_hos),
+            ("stochastic yard delays", active.enable_yard_delays),
+        ]
+        if enabled
+    ]
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -141,11 +219,18 @@ def decorate_load(
     delivery_latest = pickup_earliest + planned_pickup_service + linehaul_drive_hours + delivery_window_hours
 
     deadhead_cap = clamp(0.18 * distance + 30.0, 45.0, 220.0)
-    pickup_deadhead_miles = clamp(
-        rng.lognormvariate(math.log(38.0), 0.55),
-        5.0,
-        deadhead_cap,
-    )
+    pickup_deadhead_miles = 0.0
+    if ACTIVE_CONFIG.enable_pickup_reach:
+        pickup_deadhead_miles = clamp(
+            rng.lognormvariate(math.log(38.0), 0.55),
+            5.0,
+            deadhead_cap,
+        )
+    pickup_yard_delay = 0.0
+    dropoff_yard_delay = 0.0
+    if ACTIVE_CONFIG.enable_yard_delays:
+        pickup_yard_delay = sample_yard_delay(rng)
+        dropoff_yard_delay = sample_yard_delay(rng)
 
     load.update(
         {
@@ -158,8 +243,8 @@ def decorate_load(
             "delivery_earliest": delivery_earliest,
             "delivery_latest": delivery_latest,
             "delivery_window_hours": delivery_window_hours,
-            "pickup_yard_delay_hours": sample_yard_delay(rng),
-            "dropoff_yard_delay_hours": sample_yard_delay(rng),
+            "pickup_yard_delay_hours": pickup_yard_delay,
+            "dropoff_yard_delay_hours": dropoff_yard_delay,
         }
     )
     return load
@@ -171,6 +256,8 @@ def maybe_reset_for_wait(
     drive_used: float,
     duty_used: float,
 ) -> tuple[float, float, float]:
+    if not ACTIVE_CONFIG.enable_hos:
+        return target_time, 0.0, 0.0
     if target_time <= time:
         return time, drive_used, duty_used
     wait = target_time - time
@@ -185,6 +272,8 @@ def add_drive(
     drive_used: float,
     duty_used: float,
 ) -> tuple[float, float, float, float]:
+    if not ACTIVE_CONFIG.enable_hos:
+        return time + max(0.0, drive_hours), 0.0, 0.0, 0.0
     remaining = max(0.0, drive_hours)
     rest_hours = 0.0
     while remaining > 1e-9:
@@ -210,6 +299,8 @@ def add_on_duty(
     drive_used: float,
     duty_used: float,
 ) -> tuple[float, float, float, float]:
+    if not ACTIVE_CONFIG.enable_hos:
+        return time + max(0.0, hours), 0.0, 0.0, 0.0
     remaining = max(0.0, hours)
     rest_hours = 0.0
     while remaining > 1e-9:
@@ -244,11 +335,12 @@ def plan_schedule(
 
     pickup_earliest = float(load.get("pickup_earliest", decision_hour))
     pickup_latest = float(load.get("pickup_latest", pickup_earliest + 4.0))
-    if time > pickup_latest:
+    if ACTIVE_CONFIG.enable_time_windows and time > pickup_latest:
         return ScheduleResult(False, "pickup_window_miss")
-    time, drive_used, duty_used = maybe_reset_for_wait(
-        time, pickup_earliest, drive_used, duty_used
-    )
+    if ACTIVE_CONFIG.enable_time_windows:
+        time, drive_used, duty_used = maybe_reset_for_wait(
+            time, pickup_earliest, drive_used, duty_used
+        )
     pickup_start = time
 
     pickup_service = PICKUP_BASE_SERVICE_HOURS + float(load.get("pickup_yard_delay_hours", 0.0))
@@ -267,11 +359,12 @@ def plan_schedule(
 
     delivery_earliest = float(load.get("delivery_earliest", delivery_arrival))
     delivery_latest = float(load.get("delivery_latest", delivery_arrival + 12.0))
-    if delivery_arrival > delivery_latest:
+    if ACTIVE_CONFIG.enable_time_windows and delivery_arrival > delivery_latest:
         return ScheduleResult(False, "delivery_window_miss")
-    time, drive_used, duty_used = maybe_reset_for_wait(
-        time, delivery_earliest, drive_used, duty_used
-    )
+    if ACTIVE_CONFIG.enable_time_windows:
+        time, drive_used, duty_used = maybe_reset_for_wait(
+            time, delivery_earliest, drive_used, duty_used
+        )
 
     dropoff_service = DROPOFF_BASE_SERVICE_HOURS + float(load.get("dropoff_yard_delay_hours", 0.0))
     time, drive_used, duty_used, added_rest = add_on_duty(
@@ -293,10 +386,16 @@ def plan_schedule(
 
 def realized_profit(load: dict[str, object]) -> tuple[float, float]:
     base_cost_per_mile = float(load.get("base_cost_per_mile", 3.0))
-    deadhead_miles = float(load.get("pickup_deadhead_miles", 0.0))
-    yard_delay = float(load.get("pickup_yard_delay_hours", 0.0)) + float(
-        load.get("dropoff_yard_delay_hours", 0.0)
+    deadhead_miles = (
+        float(load.get("pickup_deadhead_miles", 0.0))
+        if ACTIVE_CONFIG.enable_pickup_reach
+        else 0.0
     )
+    yard_delay = 0.0
+    if ACTIVE_CONFIG.enable_yard_delays:
+        yard_delay = float(load.get("pickup_yard_delay_hours", 0.0)) + float(
+            load.get("dropoff_yard_delay_hours", 0.0)
+        )
     extra_cost = (
         deadhead_miles * base_cost_per_mile * DEADHEAD_COST_FACTOR
         + yard_delay * YARD_DELAY_COST_PER_HOUR
@@ -320,7 +419,10 @@ def apply_accept(
     infeasible_outcome = "infeasible"
     for idx, raw_truck in enumerate(candidates):
         truck = coerce_truck(raw_truck, origin, idx)
-        if truck.available_time > float(load.get("pickup_latest", decision_hour + 4.0)):
+        if (
+            ACTIVE_CONFIG.enable_time_windows
+            and truck.available_time > float(load.get("pickup_latest", decision_hour + 4.0))
+        ):
             infeasible_outcome = "pickup_window_miss"
             continue
         schedule = plan_schedule(truck, load, decision_hour)
@@ -346,9 +448,16 @@ def apply_accept(
     fleet.setdefault(destination, []).append(updated)
 
     profit, extra_cost = realized_profit(load)
-    yard_delay = float(load.get("pickup_yard_delay_hours", 0.0)) + float(
-        load.get("dropoff_yard_delay_hours", 0.0)
+    deadhead_miles = (
+        float(load.get("pickup_deadhead_miles", 0.0))
+        if ACTIVE_CONFIG.enable_pickup_reach
+        else 0.0
     )
+    yard_delay = 0.0
+    if ACTIVE_CONFIG.enable_yard_delays:
+        yard_delay = float(load.get("pickup_yard_delay_hours", 0.0)) + float(
+            load.get("dropoff_yard_delay_hours", 0.0)
+        )
     return AssignmentResult(
         True,
         "accept",
@@ -356,7 +465,7 @@ def apply_accept(
         truck_id=truck.truck_id,
         final_state=destination,
         final_available_time=schedule.final_available_time,
-        deadhead_miles=float(load.get("pickup_deadhead_miles", 0.0)),
+        deadhead_miles=deadhead_miles,
         yard_delay_hours=yard_delay,
         hos_rest_hours=schedule.hos_rest_hours,
         busy_hours=schedule.final_available_time - max(decision_hour, truck.available_time),

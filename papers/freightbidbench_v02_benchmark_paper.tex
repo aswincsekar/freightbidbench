@@ -7,6 +7,7 @@
 \usepackage{graphicx}
 \usepackage{array}
 \usepackage{longtable}
+\usepackage{microtype}
 
 \title{FreightBidBench: A Public-Calibrated Benchmark for Real-Time Truckload Bid Acceptance Under Operational Feasibility Constraints}
 \author{Aswin Sekar}
@@ -62,9 +63,9 @@ This paper makes five contributions.
   benchmark for real-time truckload bid acceptance.
   \item We define a closed-loop synthetic freight environment calibrated from
   public FAF and USDA-derived inputs.
-  \item We add a v0.2 operational feasibility layer with individual trucks,
-  pickup reach time, pickup/delivery appointment windows, simplified HOS
-  clocks, and stochastic yard delays.
+  \item We add a v0.2 feasibility layer with individual trucks, pickup reach
+  time, pickup and delivery appointment windows, simplified HOS clocks, and
+  stochastic yard delays.
   \item We provide reference policies: myopic margin, bid-price heuristic,
   linear rollout-label surrogate, selective surrogate/rollout cascade, and
   finite rollout teacher.
@@ -164,7 +165,10 @@ so the benchmark is reproducible and inspectable.
 \begin{table}[t]
 \centering
 \caption{Public calibration inputs used in FreightBidBench v0.2.}
-\begin{tabular}{p{0.20\linewidth}p{0.25\linewidth}p{0.24\linewidth}p{0.22\linewidth}}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.17\linewidth}
+                >{\raggedright\arraybackslash}p{0.23\linewidth}
+                >{\raggedright\arraybackslash}p{0.24\linewidth}
+                >{\raggedright\arraybackslash}p{0.24\linewidth}}
 \toprule
 Source & Benchmark use & Fields used & Main limitation \\
 \midrule
