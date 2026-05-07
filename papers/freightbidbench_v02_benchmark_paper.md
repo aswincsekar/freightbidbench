@@ -16,7 +16,9 @@ stochastic shipper/receiver yard delays. The benchmark reports profit,
 latency, rollout-call share, infeasible accept attempts, HOS rest hours,
 deadhead miles, yard-delay hours, and profit retention relative to a finite
 rollout teacher. We provide a dependency-free reference runner, manifest format,
-baseline policies, and latency-profit frontier outputs.
+baseline policies, and latency-profit frontier outputs. A standard-preset
+ablation study shows that appointment windows and HOS constraints are
+first-order benchmark features, not minor bookkeeping.
 
 ## 1. Introduction
 
@@ -51,6 +53,8 @@ environment and report the same latency-profit metrics.
    rollout teacher.
 5. We define benchmark reporting rules: seed protocol, manifest, latency-profit
    frontier, feasibility metrics, and confidence intervals.
+6. We provide feasibility ablations showing that removing appointment windows or
+   HOS can more than double fast-policy profit in tight and scarce scenarios.
 
 ## 3. Related Work
 
@@ -184,6 +188,10 @@ Version 0.2 adds a first feasibility layer:
 This layer is intentionally simpler than a full dispatch simulator. It excludes
 road closures, route-level traffic, split sleeper rules, driver home time, team
 drivers, and maintenance.
+
+The full benchmark keeps all feasibility features enabled. Ablation runs disable
+one feature at a time only to measure sensitivity; they are not proposed as
+alternative benchmark definitions.
 
 ## 7. Reference Policies
 
@@ -342,12 +350,44 @@ Generated figures:
 **Figure 4. Infeasible accept attempts by policy.**
 `benchmark_runs/standard_v02/figures/infeasible_accepts_by_policy.svg`
 
+### 10.4 Operational Feasibility Ablation
+
+We reran the standard preset with individual feasibility features disabled.
+These are sensitivity tests, not recommended benchmark settings. Table 5 reports
+the change in myopic profit relative to the full-feasibility benchmark.
+
+**Table 5. Standard-preset feasibility ablation.** Full profit is the
+full-feasibility myopic profit. Other columns report profit change after
+disabling one or more feasibility features.
+
+| Scenario | Full Profit | No Pickup Reach | No Windows | No HOS | No Yard Delays | Minimal Feasibility |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `mild` | $1.083M | +28.2% | +58.3% | +57.9% | +25.9% | +67.3% |
+| `tight` | $0.867M | +35.1% | +124.3% | +115.5% | +32.5% | +144.9% |
+| `scarce` | $0.718M | +30.9% | +194.0% | +154.5% | +27.9% | +218.6% |
+
+The result is large: removing appointment windows raises myopic profit by
+124.3% in `tight` and 194.0% in `scarce`; removing HOS raises myopic profit by
+115.5% and 154.5% in the same scenarios. Thus, a benchmark that omits these
+constraints can make simple fast policies look much stronger than they are
+under operational feasibility.
+
+Pickup reach and yard delays also matter, but primarily as cost and time
+frictions. Removing them raises myopic profit by roughly 26-35% across the
+three scenarios. The all-disabled `minimal_feasibility` variant is a much
+easier problem: in `scarce`, myopic profit rises from $0.718M to $2.288M. This
+supports the benchmark's central design choice: profit and latency should be
+reported together with operational feasibility metrics.
+
 ## 11. Discussion
 
 The central benchmark claim is that feasibility materially changes the
-accept/reject problem. A policy that looks attractive under aggregate
-state-level availability can create pickup-window misses, excess HOS rest,
-or yard-delay exposure once individual truck feasibility is considered.
+accept/reject problem. The ablation results strengthen this claim: appointment
+windows and HOS constraints change the benchmark regime by more than the
+current differences among several reference policies. A policy that looks
+attractive under aggregate state-level availability can create pickup-window
+misses, excess HOS rest, or yard-delay exposure once individual truck
+feasibility is considered.
 
 The latency result is also important: operational feasibility increases rollout
 runtime. This makes FreightBidBench useful for studying selective evaluation,
@@ -398,6 +438,13 @@ Every benchmark run writes a manifest containing:
 Benchmark submissions should include the manifest and all summary CSVs.
 The current reference manifest is
 `benchmark_runs/standard_v02/freightbidbench_manifest.json`.
+
+The standard feasibility ablation suite can be reproduced with:
+
+```bash
+python3 scripts/run_feasibility_ablation_suite.py --preset standard \
+  --output-dir benchmark_runs/feasibility_ablations_standard
+```
 
 ## 14. Conclusion
 
