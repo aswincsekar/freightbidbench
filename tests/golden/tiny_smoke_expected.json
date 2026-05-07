@@ -1,0 +1,98 @@
+{
+  "manifest": {
+    "benchmark_version": "freightbidbench-v0.2",
+    "scenario_config_version": "scenario-v0.2.1",
+    "policy_set_version": "policy-set-v0.2.1",
+    "scenario_config_path": "configs/freightbidbench_v02_scenarios.json",
+    "preset": "smoke",
+    "seed_pairs": [
+      {
+        "train_seed": 20260506,
+        "eval_seed": 20260507
+      }
+    ],
+    "policies": [
+      "reject_all",
+      "accept_all_feasible",
+      "myopic_margin",
+      "bid_price",
+      "surrogate_linear",
+      "rollout_teacher"
+    ],
+    "cascade_bands_dollars": [
+      0.0
+    ],
+    "label_limit": 5,
+    "eval_load_limit": 10,
+    "scenario_keys": [
+      "tight"
+    ],
+    "disabled_features": [],
+    "row_counts": {
+      "policy_runs": 7,
+      "static_fit": 1,
+      "policy_summary": 7,
+      "frontier_summary": 1
+    }
+  },
+  "policy_run_rows": [
+    {
+      "policy": "reject_all",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "accept_all_feasible",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "myopic_margin",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "bid_price",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "surrogate_linear",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "rollout_teacher",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "cascade_surrogate_rollout",
+      "cascade_band_dollars": "0.00"
+    }
+  ],
+  "policy_summary_rows": [
+    {
+      "policy": "reject_all",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "accept_all_feasible",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "myopic_margin",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "bid_price",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "surrogate_linear",
+      "cascade_band_dollars": ""
+    },
+    {
+      "policy": "cascade_surrogate_rollout",
+      "cascade_band_dollars": "0.00"
+    },
+    {
+      "policy": "rollout_teacher",
+      "cascade_band_dollars": ""
+    }
+  ]
+}

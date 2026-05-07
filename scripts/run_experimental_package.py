@@ -63,6 +63,8 @@ EXPERIMENT_SCENARIOS = [
 ]
 
 BASELINE_POLICIES = [
+    "reject_all",
+    "accept_all_feasible",
     "myopic_margin",
     "bid_price",
     "surrogate_linear",
@@ -353,11 +355,13 @@ def aggregate_policy_rows(rows: list[dict[str, object]]) -> list[dict[str, objec
 
 def aggregate_sort_key(row: dict[str, object]) -> tuple[object, ...]:
     policy_order = {
-        "myopic_margin": 0,
-        "bid_price": 1,
-        "surrogate_linear": 2,
-        "cascade_surrogate_rollout": 3,
-        "rollout_teacher": 4,
+        "reject_all": 0,
+        "accept_all_feasible": 1,
+        "myopic_margin": 2,
+        "bid_price": 3,
+        "surrogate_linear": 4,
+        "cascade_surrogate_rollout": 5,
+        "rollout_teacher": 6,
     }
     band = as_float(row.get("cascade_band_dollars", ""))
     return (row["scenario"], policy_order.get(str(row["policy"]), 99), band)

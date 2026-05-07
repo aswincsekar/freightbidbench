@@ -107,5 +107,6 @@ plot the latency/profit and rollout-share/profit frontiers.
 ## `freightbidbench_manifest.json`
 
 Run metadata including benchmark version, command, Python version, elapsed
-runtime, seed pairs, scenarios, policy list, cascade bands, feasibility-layer
-features, output paths, and row counts.
+runtime, scenario-config version, policy-set version, scenario-config path,
+seed pairs, scenarios, policy list, cascade bands, feasibility-layer features,
+output paths, and row counts.

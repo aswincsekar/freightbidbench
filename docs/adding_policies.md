@@ -5,8 +5,9 @@ FreightBidBench policies currently plug into
 
 ## Minimal Steps
 
-1. Add the policy name to `POLICIES` in `scripts/run_freightbidbench.py` if it
-   should appear in public benchmark runs.
+1. Add the policy name to `policies.default` in
+   `configs/freightbidbench_v02_scenarios.json` if it should appear in public
+   benchmark runs. Bump `policy_set_version` when changing the public set.
 2. Add a branch to `choose_action()` in `scripts/run_surrogate_cascade.py`.
 3. Return:
 
@@ -22,7 +23,7 @@ FreightBidBench policies currently plug into
 5. Run:
 
    ```bash
-   python3 -m unittest discover -s tests
+   make test
    python3 scripts/run_freightbidbench.py \
      --preset smoke \
      --label-limit 20 \

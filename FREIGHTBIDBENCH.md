@@ -33,6 +33,10 @@ The finite rollout teacher is a stochastic benchmark, not an oracle. A cheaper
 policy can exceed 100% retention if it earns higher realized closed-loop profit
 than the finite-lookahead teacher on the same seed average.
 
+The versioned benchmark contract is pinned in
+`configs/freightbidbench_v02_scenarios.json` and summarized in
+`docs/benchmark_spec.md`.
+
 ## Feasibility Layer
 
 Version 0.2 adds a first operational feasibility layer:
@@ -165,6 +169,11 @@ It produced:
 The previous v0.1 standard run remains in `benchmark_runs/standard`, but it
 does not include HOS/window feasibility.
 
+The checked `standard_v02` output predates the v0.2.1 addition of the
+`reject_all` and `accept_all_feasible` sanity baselines. A fresh standard run
+will include those two extra baselines and should be used before freezing final
+paper tables.
+
 Key standard-run findings:
 
 - `mild`: myopic and bid-price slightly exceed the finite rollout teacher on
@@ -184,6 +193,8 @@ Key standard-run findings:
 
 The v0.2 reference runner includes:
 
+- `reject_all`: reject every load; a lower-bound sanity check.
+- `accept_all_feasible`: accept every currently feasible load; a pressure-test sanity check.
 - `myopic_margin`: accept if immediate margin is non-negative.
 - `bid_price`: accept using a simple origin-destination future-value proxy.
 - `surrogate_linear`: train a dependency-free ridge linear surrogate on rollout incremental-value labels.
@@ -194,22 +205,24 @@ The v0.2 reference runner includes:
 
 For a benchmark result to be comparable, report:
 
-1. Preset or exact scenario list.
-2. Number of seed pairs and first seed.
-3. Cascade bands.
-4. Label limit and evaluation load limit.
-5. Full `freightbidbench_manifest.json`.
-6. Mean profit and confidence intervals from `freightbidbench_policy_summary.csv`.
-7. Latency-profit frontier from `freightbidbench_frontier_summary.csv`.
-8. Feasibility metrics: infeasible accepts, pickup-window misses, delivery-window misses, HOS rest hours, yard-delay hours, and deadhead miles.
+1. Benchmark version, scenario-config version, and policy-set version.
+2. Preset or exact scenario list.
+3. Number of seed pairs and first seed.
+4. Cascade bands.
+5. Label limit and evaluation load limit.
+6. Full `freightbidbench_manifest.json`.
+7. Mean profit and confidence intervals from `freightbidbench_policy_summary.csv`.
+8. Latency-profit frontier from `freightbidbench_frontier_summary.csv`.
+9. Feasibility metrics: infeasible accepts, pickup-window misses, delivery-window misses, HOS rest hours, yard-delay hours, and deadhead miles.
 
 Do not report a single seed as a final result except for smoke testing.
 
 ## Extending The Bench
 
 New policies should plug into the policy choice layer in
-`scripts/run_surrogate_cascade.py`, then be added to `POLICIES` in
-`scripts/run_freightbidbench.py`.
+`scripts/run_surrogate_cascade.py`, then be added to
+`policies.default` in `configs/freightbidbench_v02_scenarios.json` if they
+belong in public benchmark runs.
 
 The benchmark intentionally starts with a dependency-free reference
 implementation. Stronger ML methods can live in separate scripts as long as

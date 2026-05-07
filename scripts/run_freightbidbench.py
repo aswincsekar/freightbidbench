@@ -26,73 +26,40 @@ import freight_feasibility as feas  # noqa: E402
 import run_surrogate_cascade as sc  # noqa: E402
 
 
-BENCHMARK_VERSION = "freightbidbench-v0.2"
+CONFIG_PATH = ROOT / "configs" / "freightbidbench_v02_scenarios.json"
+BENCHMARK_CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+BENCHMARK_VERSION = str(BENCHMARK_CONFIG["benchmark_version"])
+SCENARIO_CONFIG_VERSION = str(BENCHMARK_CONFIG["scenario_config_version"])
+POLICY_SET_VERSION = str(BENCHMARK_CONFIG["policy_set_version"])
 DEFAULT_OUTPUT_DIR = ROOT / "benchmark_runs" / "current"
-DEFAULT_FIRST_SEED = 20260506
+DEFAULT_FIRST_SEED = int(BENCHMARK_CONFIG["default_first_seed"])
+
+
+def scenario_from_config(config: dict[str, object]) -> base.Scenario:
+    return base.Scenario(
+        str(config["name"]),
+        horizon_hours=int(config["horizon_hours"]),
+        loads_per_hour=int(config["loads_per_hour"]),
+        fleet_size=int(config["fleet_size"]),
+        base_cost_per_mile=float(config["base_cost_per_mile"]),
+        fixed_load_cost=float(config["fixed_load_cost"]),
+        value_scale_dollars=float(config["value_scale_dollars"]),
+    )
+
 
 SCENARIOS = {
-    "mild": base.Scenario(
-        "freightbidbench_mild_capacity",
-        horizon_hours=72,
-        loads_per_hour=12,
-        fleet_size=90,
-        base_cost_per_mile=2.95,
-        fixed_load_cost=250.0,
-        value_scale_dollars=2400.0,
-    ),
-    "tight": base.Scenario(
-        "freightbidbench_tight_capacity",
-        horizon_hours=72,
-        loads_per_hour=14,
-        fleet_size=70,
-        base_cost_per_mile=3.10,
-        fixed_load_cost=250.0,
-        value_scale_dollars=3000.0,
-    ),
-    "scarce": base.Scenario(
-        "freightbidbench_scarce_capacity",
-        horizon_hours=72,
-        loads_per_hour=16,
-        fleet_size=55,
-        base_cost_per_mile=3.20,
-        fixed_load_cost=250.0,
-        value_scale_dollars=3400.0,
-    ),
+    name: scenario_from_config(config)
+    for name, config in BENCHMARK_CONFIG["scenarios"].items()
 }
+PRESETS = BENCHMARK_CONFIG["presets"]
+POLICIES = list(BENCHMARK_CONFIG["policies"]["default"])
 
-PRESETS = {
-    "smoke": {
-        "description": "One seed pair on the tight scenario for CI and quick checks.",
-        "scenarios": ["tight"],
-        "seed_count": 1,
-        "label_limit": 200,
-        "eval_load_limit": 250,
-    },
-    "standard": {
-        "description": "Three seed pairs across mild, tight, and scarce regimes.",
-        "scenarios": ["mild", "tight", "scarce"],
-        "seed_count": 3,
-        "label_limit": 600,
-        "eval_load_limit": None,
-    },
-    "paper": {
-        "description": "Ten seed pairs across all regimes for preliminary paper tables.",
-        "scenarios": ["mild", "tight", "scarce"],
-        "seed_count": 10,
-        "label_limit": 1200,
-        "eval_load_limit": None,
-    },
-}
-
-POLICIES = [
-    "myopic_margin",
-    "bid_price",
-    "surrogate_linear",
-    "rollout_teacher",
+DEFAULT_CASCADE_BANDS = [
+    float(band) for band in BENCHMARK_CONFIG["cascade_bands_dollars"]
 ]
-
-DEFAULT_CASCADE_BANDS = sc.CASCADE_FRONTIER_BANDS
-REPRESENTATIVE_CASCADE_BAND = sc.CASCADE_BAND_DOLLARS
+REPRESENTATIVE_CASCADE_BAND = float(
+    BENCHMARK_CONFIG["representative_cascade_band_dollars"]
+)
 
 
 def relative(path: Path) -> str:
@@ -400,6 +367,9 @@ def write_manifest(
 ) -> None:
     manifest = {
         "benchmark_version": BENCHMARK_VERSION,
+        "scenario_config_version": SCENARIO_CONFIG_VERSION,
+        "policy_set_version": POLICY_SET_VERSION,
+        "scenario_config_path": relative(CONFIG_PATH),
         "preset": preset,
         "preset_description": PRESETS[preset]["description"],
         "command": " ".join(sys.argv),

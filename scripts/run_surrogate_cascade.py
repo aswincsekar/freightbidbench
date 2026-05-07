@@ -403,6 +403,14 @@ def choose_action(
     cascade_band_dollars: float = CASCADE_BAND_DOLLARS,
     rollout_seed_offset: int = EVAL_SEED,
 ) -> tuple[bool, float, str]:
+    if policy_name == "reject_all":
+        return False, 0.0, "rule"
+    if policy_name == "accept_all_feasible":
+        assignment = feas.apply_accept(
+            feas.copy_fleet(fleet), load, float(load["hour"])
+        )
+        score = assignment.profit if assignment.accepted else -TARGET_SCALE
+        return assignment.accepted, score, "feasibility_check"
     if policy_name == "myopic_margin":
         margin = float(load["price"]) - float(load["direct_cost"])
         return margin >= 0, margin, "myopic"
@@ -686,6 +694,8 @@ def main() -> None:
     summary_rows: list[dict[str, object]] = []
     decision_rows: list[dict[str, object]] = []
     for policy_name in [
+        "reject_all",
+        "accept_all_feasible",
         "myopic_margin",
         "bid_price",
         "surrogate_linear",

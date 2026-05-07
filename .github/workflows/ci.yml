@@ -16,18 +16,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Compile scripts
-        run: python -m py_compile scripts/*.py
-
       - name: Run unit tests
-        run: python -m unittest discover -s tests
+        run: make test
 
       - name: Run benchmark smoke preset
-        run: >
-          python scripts/run_freightbidbench.py
-          --preset smoke
-          --seed-count 1
-          --label-limit 5
-          --eval-load-limit 10
-          --cascade-bands 0
-          --output-dir benchmark_runs/ci_smoke
+        run: make smoke
