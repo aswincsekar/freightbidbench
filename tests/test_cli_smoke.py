@@ -54,6 +54,8 @@ class FreightBidBenchCliTests(unittest.TestCase):
                 "preset",
                 "seed_pairs",
                 "policies",
+                "cascade_policy",
+                "evaluated_policies",
                 "cascade_bands_dollars",
                 "label_limit",
                 "eval_load_limit",
@@ -94,6 +96,42 @@ class FreightBidBenchCliTests(unittest.TestCase):
             self.assertEqual(len(frontier_rows), 1)
             self.assertEqual(frontier_rows[0]["policy"], "cascade_surrogate_rollout")
             self.assertEqual(frontier_rows[0]["cascade_band_dollars"], "0.00")
+
+    def test_explicit_zero_seed_count_is_rejected(self):
+        command = [
+            sys.executable,
+            "scripts/run_freightbidbench.py",
+            "--preset",
+            "smoke",
+            "--seed-count",
+            "0",
+        ]
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("--seed-count must be positive", completed.stderr)
+
+    def test_explicit_zero_label_limit_is_rejected(self):
+        command = [
+            sys.executable,
+            "scripts/run_freightbidbench.py",
+            "--preset",
+            "smoke",
+            "--label-limit",
+            "0",
+        ]
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("--label-limit must be positive", completed.stderr)
 
 
 if __name__ == "__main__":

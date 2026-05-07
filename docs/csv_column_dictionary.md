@@ -108,5 +108,5 @@ plot the latency/profit and rollout-share/profit frontiers.
 
 Run metadata including benchmark version, command, Python version, elapsed
 runtime, scenario-config version, policy-set version, scenario-config path,
-seed pairs, scenarios, policy list, cascade bands, feasibility-layer features,
-output paths, and row counts.
+seed pairs, scenarios, default policy list, cascade policy, evaluated policy
+list, cascade bands, feasibility-layer features, output paths, and row counts.

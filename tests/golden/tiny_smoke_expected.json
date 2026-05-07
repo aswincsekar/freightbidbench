@@ -19,6 +19,16 @@
       "surrogate_linear",
       "rollout_teacher"
     ],
+    "cascade_policy": "cascade_surrogate_rollout",
+    "evaluated_policies": [
+      "reject_all",
+      "accept_all_feasible",
+      "myopic_margin",
+      "bid_price",
+      "surrogate_linear",
+      "rollout_teacher",
+      "cascade_surrogate_rollout"
+    ],
     "cascade_bands_dollars": [
       0.0
     ],

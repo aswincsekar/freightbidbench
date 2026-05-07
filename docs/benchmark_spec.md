@@ -98,8 +98,9 @@ Every run writes these files:
 - `freightbidbench_report.md`
 
 The manifest is the reproducibility anchor. It records the command, benchmark
-version, scenario-config version, policy-set version, seed pairs, source input
-paths, feasibility config, scenarios, output paths, and row counts.
+version, scenario-config version, policy-set version, default policy list,
+cascade policy, evaluated policy list, seed pairs, source input paths,
+feasibility config, scenarios, output paths, and row counts.
 
 ## Golden Smoke Contract
 

@@ -33,6 +33,7 @@ SCENARIO_CONFIG_VERSION = str(BENCHMARK_CONFIG["scenario_config_version"])
 POLICY_SET_VERSION = str(BENCHMARK_CONFIG["policy_set_version"])
 DEFAULT_OUTPUT_DIR = ROOT / "benchmark_runs" / "current"
 DEFAULT_FIRST_SEED = int(BENCHMARK_CONFIG["default_first_seed"])
+CASCADE_POLICY = str(BENCHMARK_CONFIG["policies"]["cascade"])
 
 
 def scenario_from_config(config: dict[str, object]) -> base.Scenario:
@@ -53,6 +54,7 @@ SCENARIOS = {
 }
 PRESETS = BENCHMARK_CONFIG["presets"]
 POLICIES = list(BENCHMARK_CONFIG["policies"]["default"])
+EVALUATED_POLICIES = POLICIES + [CASCADE_POLICY]
 
 DEFAULT_CASCADE_BANDS = [
     float(band) for band in BENCHMARK_CONFIG["cascade_bands_dollars"]
@@ -311,7 +313,7 @@ def write_report(
 - Benchmark version: `{BENCHMARK_VERSION}`
 - Preset: `{preset}` ({PRESETS[preset]['description']})
 - Seed pairs: {seed_text}
-- Policies: {", ".join(f"`{policy}`" for policy in POLICIES)}
+- Policies: {", ".join(f"`{policy}`" for policy in EVALUATED_POLICIES)}
 - Cascade bands: {", ".join(f"+/- ${band:,.0f}" for band in cascade_bands)}
 - Rollout labels per train/eval stream: up to {label_limit:,}
 - Evaluation load limit: {eval_load_limit if eval_load_limit is not None else "full horizon"}
@@ -384,6 +386,8 @@ def write_manifest(
             for train_seed, eval_seed in seed_pairs
         ],
         "policies": POLICIES,
+        "cascade_policy": CASCADE_POLICY,
+        "evaluated_policies": EVALUATED_POLICIES,
         "cascade_bands_dollars": cascade_bands,
         "label_limit": label_limit,
         "eval_load_limit": eval_load_limit,
@@ -486,10 +490,18 @@ def main(argv: list[str] | None = None) -> None:
             disable_yard_delays=args.disable_yard_delays,
         )
     )
-    seed_count = args.seed_count or int(PRESETS[args.preset]["seed_count"])
+    seed_count = (
+        args.seed_count
+        if args.seed_count is not None
+        else int(PRESETS[args.preset]["seed_count"])
+    )
     if seed_count <= 0:
         raise SystemExit("--seed-count must be positive")
-    label_limit = args.label_limit or int(PRESETS[args.preset]["label_limit"])
+    label_limit = (
+        args.label_limit
+        if args.label_limit is not None
+        else int(PRESETS[args.preset]["label_limit"])
+    )
     if label_limit <= 0:
         raise SystemExit("--label-limit must be positive")
     eval_load_limit = (
