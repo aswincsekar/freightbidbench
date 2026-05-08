@@ -48,9 +48,9 @@ environment and report the same latency-profit metrics.
 3. We add a v0.2 operational feasibility layer with individual trucks, pickup
    reach time, pickup/delivery appointment windows, simplified HOS clocks, and
    stochastic yard delays.
-4. We provide reference policies: myopic margin, bid-price heuristic, linear
-   rollout-label surrogate, selective surrogate/rollout cascade, and finite
-   rollout teacher.
+4. We provide reference policies: reject-all and accept-all-feasible sanity
+   baselines, myopic margin, bid-price heuristic, linear rollout-label
+   surrogate, selective surrogate/rollout cascade, and finite rollout teacher.
 5. We define benchmark reporting rules: seed protocol, manifest, latency-profit
    frontier, feasibility metrics, and confidence intervals.
 6. We provide feasibility ablations showing that removing appointment windows or
@@ -195,6 +195,15 @@ alternative benchmark definitions.
 
 ## 7. Reference Policies
 
+### Reject All
+
+Reject every load. This is a lower-bound sanity check.
+
+### Accept All Feasible
+
+Accept every load that can be assigned at decision time. This isolates
+operational feasibility from future-value reasoning.
+
 ### Myopic Margin
 
 Accept when immediate margin is non-negative.
@@ -288,8 +297,8 @@ Outputs:
 The current v0.2 standard run used three train/eval seed pairs across the
 `mild`, `tight`, and `scarce` scenarios. It used 600 rollout-label decisions per
 train/eval stream and evaluated the full 72-hour online horizon. The run wrote
-99 seed-level policy rows, 9 static-fit rows, 33 aggregate policy rows, and 21
-cascade-frontier rows. Total runtime was 1,224.07 seconds.
+117 seed-level policy rows, 9 static-fit rows, 39 aggregate policy rows, and 21
+cascade-frontier rows. Total runtime was 1,269.34 seconds.
 
 ### 10.1 Offline Label Fit
 
@@ -306,26 +315,32 @@ is measured against the finite rollout teacher in the same scenario.
 
 | Scenario | Policy | Mean Profit | Retention | Mean Latency ms | Infeasible | HOS Rest h | Yard Delay h |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `mild` | Reject all | $0 | 0.0% | 0.000 | 0.0 | 0 | 0 |
+| `mild` | Accept all feasible | $1,082,891 | 101.7% | 0.040 | 0.0 | 2,053 | 783 |
 | `mild` | Myopic | $1,082,891 | 101.7% | 0.000 | 323.7 | 2,053 | 783 |
 | `mild` | Bid price | $1,083,424 | 101.8% | 0.001 | 312.0 | 2,050 | 782 |
 | `mild` | Linear surrogate | $917,369 | 86.3% | 0.004 | 112.3 | 1,540 | 666 |
-| `mild` | Cascade +/- $500 | $976,891 | 91.9% | 15.394 | 76.3 | 1,627 | 676 |
-| `mild` | Rollout teacher | $1,064,003 | 100.0% | 43.857 | 0.0 | 1,840 | 676 |
+| `mild` | Cascade +/- $500 | $976,891 | 91.9% | 15.923 | 76.3 | 1,627 | 676 |
+| `mild` | Rollout teacher | $1,064,003 | 100.0% | 45.574 | 0.0 | 1,840 | 676 |
+| `tight` | Reject all | $0 | 0.0% | 0.000 | 0.0 | 0 | 0 |
+| `tight` | Accept all feasible | $864,383 | 91.7% | 0.023 | 0.0 | 1,683 | 625 |
 | `tight` | Myopic | $866,894 | 92.0% | 0.000 | 546.7 | 1,680 | 625 |
 | `tight` | Bid price | $866,894 | 92.0% | 0.001 | 533.7 | 1,680 | 625 |
 | `tight` | Linear surrogate | $739,135 | 78.5% | 0.004 | 87.3 | 1,217 | 539 |
-| `tight` | Cascade +/- $500 | $812,794 | 86.3% | 10.601 | 34.3 | 1,363 | 538 |
-| `tight` | Rollout teacher | $942,219 | 100.0% | 27.373 | 0.0 | 1,753 | 567 |
+| `tight` | Cascade +/- $500 | $812,794 | 86.3% | 11.069 | 34.3 | 1,363 | 538 |
+| `tight` | Rollout teacher | $942,219 | 100.0% | 28.549 | 0.0 | 1,753 | 567 |
+| `scarce` | Reject all | $0 | 0.0% | 0.000 | 0.0 | 0 | 0 |
+| `scarce` | Accept all feasible | $714,150 | 94.3% | 0.016 | 0.0 | 1,373 | 512 |
 | `scarce` | Myopic | $718,085 | 94.8% | 0.000 | 754.3 | 1,377 | 515 |
 | `scarce` | Bid price | $718,085 | 94.8% | 0.001 | 740.0 | 1,377 | 515 |
 | `scarce` | Linear surrogate | $487,441 | 64.4% | 0.004 | 40.3 | 813 | 373 |
-| `scarce` | Cascade +/- $500 | $577,343 | 76.3% | 7.087 | 0.0 | 950 | 370 |
-| `scarce` | Rollout teacher | $757,682 | 100.0% | 16.751 | 0.0 | 1,403 | 420 |
+| `scarce` | Cascade +/- $500 | $577,343 | 76.3% | 7.354 | 0.0 | 950 | 370 |
+| `scarce` | Rollout teacher | $757,682 | 100.0% | 17.438 | 0.0 | 1,403 | 420 |
 
 Two findings matter for the benchmark paper. First, feasibility metrics are not
 secondary bookkeeping: myopic and bid-price policies create hundreds of
 infeasible accept attempts in the v0.2 standard run. Second, rollout is much
-slower under feasibility, with mean latency from 16.751 ms to 43.857 ms across
+slower under feasibility, with mean latency from 17.438 ms to 45.574 ms across
 scenarios. This creates a clear latency-quality benchmark for future methods.
 
 ### 10.3 Cascade Frontier
@@ -422,12 +437,16 @@ python3 scripts/plot_freightbidbench.py --run-dir benchmark_runs/standard_v02
 Every benchmark run writes a manifest containing:
 
 - benchmark version,
+- scenario-configuration version,
+- policy-set version,
 - command,
 - Python version,
 - source inputs,
 - scenarios,
 - seed pairs,
-- policies,
+- default policies,
+- cascade policy,
+- evaluated policies,
 - cascade bands,
 - label limit,
 - evaluation load limit,

@@ -1,10 +1,13 @@
 {
   "benchmark_version": "freightbidbench-v0.2",
+  "scenario_config_version": "scenario-v0.2.1",
+  "policy_set_version": "policy-set-v0.2.1",
+  "scenario_config_path": "configs/freightbidbench_v02_scenarios.json",
   "preset": "standard",
   "preset_description": "Three seed pairs across mild, tight, and scarce regimes.",
   "command": "scripts/run_freightbidbench.py --preset standard --output-dir benchmark_runs/standard_v02",
   "python": "3.11.1",
-  "elapsed_seconds": 1224.07,
+  "elapsed_seconds": 1269.34,
   "source_inputs": {
     "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
     "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
@@ -24,10 +27,22 @@
     }
   ],
   "policies": [
+    "reject_all",
+    "accept_all_feasible",
     "myopic_margin",
     "bid_price",
     "surrogate_linear",
     "rollout_teacher"
+  ],
+  "cascade_policy": "cascade_surrogate_rollout",
+  "evaluated_policies": [
+    "reject_all",
+    "accept_all_feasible",
+    "myopic_margin",
+    "bid_price",
+    "surrogate_linear",
+    "rollout_teacher",
+    "cascade_surrogate_rollout"
   ],
   "cascade_bands_dollars": [
     0.0,
@@ -41,15 +56,16 @@
   "label_limit": 600,
   "eval_load_limit": null,
   "feasibility_layer": {
-    "enabled": true,
+    "individual_truck_state": true,
     "version": "v0.2",
-    "features": [
-      "individual_truck_state",
-      "pickup_reach_time",
-      "pickup_delivery_windows",
-      "simplified_hos_11_14_10",
-      "stochastic_pickup_dropoff_yard_delays"
-    ]
+    "enabled": true,
+    "features": {
+      "pickup_reach_time": true,
+      "pickup_delivery_windows": true,
+      "simplified_hos_11_14_10": true,
+      "stochastic_pickup_dropoff_yard_delays": true
+    },
+    "disabled_features": []
   },
   "scenarios": {
     "mild": {
@@ -89,9 +105,9 @@
     "report": "benchmark_runs/standard_v02/freightbidbench_report.md"
   },
   "row_counts": {
-    "policy_runs": 99,
+    "policy_runs": 117,
     "static_fit": 9,
-    "policy_summary": 33,
+    "policy_summary": 39,
     "frontier_summary": 21
   },
   "notes": [

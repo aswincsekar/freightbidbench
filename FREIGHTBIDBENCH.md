@@ -161,18 +161,13 @@ It produced:
 
 - `benchmark_runs/standard_v02/freightbidbench_report.md`
 - `benchmark_runs/standard_v02/freightbidbench_manifest.json`
-- 99 seed-level policy rows,
+- 117 seed-level policy rows,
 - 9 static-fit rows,
-- 33 aggregate policy rows,
+- 39 aggregate policy rows,
 - 21 aggregate frontier rows.
 
 The previous v0.1 standard run remains in `benchmark_runs/standard`, but it
 does not include HOS/window feasibility.
-
-The checked `standard_v02` output predates the v0.2.1 addition of the
-`reject_all` and `accept_all_feasible` sanity baselines. A fresh standard run
-will include those two extra baselines and should be used before freezing final
-paper tables.
 
 Key standard-run findings:
 
@@ -186,6 +181,9 @@ Key standard-run findings:
 - Feasibility materially changes the benchmark: myopic and bid-price policies
   create hundreds of infeasible accept attempts, while rollout avoids them in
   the reported standard run.
+- `accept_all_feasible` removes infeasible attempts while staying close to
+  myopic profit, which makes it a useful sanity baseline rather than a
+  future-aware decision policy.
 - Rollout latency is much higher than in v0.1 because each branch now checks
   individual truck feasibility, windows, HOS, and yard delays.
 

@@ -168,13 +168,13 @@ Current result:
 - The publishable benchmark entry point is now `python3 scripts/run_freightbidbench.py --preset standard --output-dir benchmark_runs/standard` from the `faster_planning/` directory.
 - The public policy set now includes two sanity baselines, `reject_all` and `accept_all_feasible`, before the optimization-oriented baselines.
 - FreightBidBench v0.2 standard output is in `benchmark_runs/standard_v02`; it uses 3 seed pairs, 3 scenarios, 600 rollout labels per train/eval stream, and the full 72-hour evaluation horizon.
-- The checked `benchmark_runs/standard_v02` reference output predates the v0.2.1 sanity-baseline expansion; rerun `make standard` before using it as the final paper table.
+- The checked `benchmark_runs/standard_v02` reference output has been refreshed under policy set v0.2.1: 117 seed-level policy rows, 9 static-fit rows, 39 aggregate policy rows, and 21 frontier rows.
 - v0.2 policy summaries now include infeasible accept attempts, pickup-window misses, delivery-window misses, deadhead miles, HOS rest hours, and yard-delay hours.
 - v0.2 standard results: rollout earns $942k in tight capacity versus $867k for myopic/bid-price, and $758k in scarce capacity versus $718k for myopic/bid-price.
 - v0.2 figures are in `benchmark_runs/standard_v02/figures`.
 - The first benchmark-paper draft is `papers/freightbidbench_v02_benchmark_paper.md`.
 - The benchmark-paper references are in `papers/references.bib`, and the release checklist is in `papers/benchmark_release_checklist.md`.
 
-The next concrete work package is to refresh the standard and paper-strength
-reference results under policy set v0.2.1, update the manuscript tables from
-those regenerated outputs, and then do the final GitHub release pass.
+The next concrete work package is to run the heavier `paper` preset or make a
+deliberate standard-only release decision, then do the final GitHub release
+pass.
