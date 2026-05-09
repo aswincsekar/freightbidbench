@@ -1,7 +1,7 @@
 # FreightBidBench: Feasibility Calibration for Public Real-Time Truckload Bid Benchmarks
 
 Code and benchmark artifacts: <https://github.com/aswincsekar/freightbidbench>
-(release `v0.2.1`).
+(release `v0.2.1`, commit `c0a385c1e269afe4efa4cfa1ca9afa6e7d37ca14`).
 
 ## Abstract
 
@@ -563,8 +563,8 @@ These limitations should be stated as benchmark boundaries, not hidden.
 
 The benchmark release is designed around command-line reproduction rather than
 manual notebook execution. The release artifact is identified by Git tag
-`v0.2.1` at <https://github.com/aswincsekar/freightbidbench>. Reproduction
-should start from:
+`v0.2.1` at <https://github.com/aswincsekar/freightbidbench>, pinned to commit
+`c0a385c1e269afe4efa4cfa1ca9afa6e7d37ca14`. Reproduction should start from:
 
 ```bash
 git checkout v0.2.1
