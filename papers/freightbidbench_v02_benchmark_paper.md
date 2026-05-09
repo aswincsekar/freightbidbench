@@ -1,24 +1,28 @@
-# FreightBidBench: A Public-Calibrated Benchmark for Real-Time Truckload Bid Acceptance Under Operational Feasibility Constraints
+# FreightBidBench: Feasibility Calibration for Public Real-Time Truckload Bid Benchmarks
+
+Code and benchmark artifacts: <https://github.com/aswincsekar/freightbidbench>
+(release `v0.2.1`).
 
 ## Abstract
 
-Truckload carriers and brokers must make accept/reject decisions under tight
-latency constraints, uncertain future demand, and operational feasibility
-constraints. Existing academic formulations often study dynamic fleet management
-or stochastic vehicle routing, but reproducible public benchmarks for real-time
-truckload bid evaluation remain limited. We introduce FreightBidBench, a
-public-calibrated synthetic benchmark built from FAF freight-flow structure and
-USDA AMS truck-rate reports. FreightBidBench evaluates policies in closed loop:
-accepted loads move trucks through the network, consume driver availability, and
-affect future opportunity cost. Version 0.2 adds individual truck state, pickup
-reach time, pickup and delivery windows, simplified hours-of-service clocks, and
-stochastic shipper/receiver yard delays. The benchmark reports profit,
-latency, rollout-call share, infeasible accept attempts, HOS rest hours,
-deadhead miles, yard-delay hours, and profit retention relative to a finite
-rollout teacher. We provide a dependency-free reference runner, manifest format,
-baseline policies, and latency-profit frontier outputs. A standard-preset
-ablation study shows that appointment windows and HOS constraints are
-first-order benchmark features, not minor bookkeeping.
+Truckload carriers and brokers make accept/reject decisions under tight latency,
+uncertain future demand, and operational feasibility constraints. Existing
+academic formulations often study dynamic fleet management or stochastic vehicle
+routing, but public benchmarks for real-time truckload bid evaluation rarely
+combine stochastic tenders, closed-loop fleet state, latency measurement, and
+driver/facility feasibility. We introduce FreightBidBench, a public-calibrated
+synthetic benchmark built from FAF freight-flow structure and USDA AMS
+truck-rate reports. Version 0.2 adds individual truck state, pickup reach time,
+pickup and delivery appointment windows, simplified hours-of-service clocks, and
+stochastic shipper/receiver yard delays. The main empirical finding is
+calibrative: removing appointment windows raises myopic profit by 124% in
+`tight` and 194% in `scarce`, and removing HOS raises myopic profit by 116% and
+155% in the same scenarios; disabling the full feasibility stack raises
+`scarce` myopic profit by 219%. At the same time, simple feasible or myopic
+policies remain near the finite rollout teacher in the full-feasibility
+benchmark. Thus, v0.2 shows that operational feasibility is a first-order
+benchmark object for online accept/reject decisions evaluated with closed-loop
+fleet state and latency, not bookkeeping.
 
 ## 1. Introduction
 
@@ -29,15 +33,23 @@ driver hours needed for a better future load. Conversely, rejecting a low-margin
 load can be costly when the destination improves fleet positioning.
 
 The main obstacle to reproducible research in this setting is not only model
-choice. It is the lack of a public benchmark that combines stochastic demand,
-closed-loop fleet state, bid-evaluation latency, and operational feasibility.
-Private tender data is rarely shareable. Production dispatch systems are
-complex and unavailable to most researchers.
+choice. It is also measurement. A benchmark that omits pickup reach,
+appointment windows, HOS clocks, or yard delays can make a fast policy look
+strong for the wrong reason: it is not being charged for the operational work
+needed to make the acceptance decision real. Private tender data is rarely
+shareable, and production dispatch systems are complex and unavailable to most
+researchers, so this measurement problem is hard to audit.
 
 FreightBidBench addresses this gap with a public-calibrated benchmark rather
 than a claim of production-grade simulation. The purpose is to create a common
 testbed where researchers can compare policies on the same stochastic freight
-environment and report the same latency-profit metrics.
+environment and report the same profit, latency, and feasibility metrics.
+
+This paper uses FreightBidBench v0.2 as a calibration study. The headline is
+not that v0.2 produces a clean latency-quality frontier. It does not. Instead,
+v0.2 shows that feasibility constraints dominate the interpretation of policy
+results, and that additional economic and temporal structure is needed before a
+future version should be used to rank sophisticated acceleration methods.
 
 ## 2. Contributions
 
@@ -48,13 +60,17 @@ environment and report the same latency-profit metrics.
 3. We add a v0.2 operational feasibility layer with individual trucks, pickup
    reach time, pickup/delivery appointment windows, simplified HOS clocks, and
    stochastic yard delays.
-4. We provide reference policies: reject-all and accept-all-feasible sanity
-   baselines, myopic margin, bid-price heuristic, linear rollout-label
-   surrogate, selective surrogate/rollout cascade, and finite rollout teacher.
-5. We define benchmark reporting rules: seed protocol, manifest, latency-profit
-   frontier, feasibility metrics, and confidence intervals.
-6. We provide feasibility ablations showing that removing appointment windows or
-   HOS can more than double fast-policy profit in tight and scarce scenarios.
+4. We show that removing appointment windows or HOS can more than double
+   myopic profit in tight and scarce scenarios, showing that these constraints
+   are first-order relative to the policy gaps observed in v0.2.
+5. We report reference policies, paired-seed policy differences, latency, and
+   feasibility metrics under a manifest-based reproducibility contract.
+6. We diagnose why v0.2 is a calibration benchmark rather than a final
+   latency-frontier benchmark: accepted-but-unserviceable tenders are
+   under-penalized, terminal truck position has weak carryover value, temporal
+   demand structure is limited, and the rollout teacher is not an upper bound.
+   We identify a realized-seed hindsight optimization bound as the next
+   diagnostic ceiling for v0.3.
 
 ## 3. Related Work
 
@@ -85,6 +101,28 @@ approximations for dynamic customer acceptance in delivery routing
 and surrogate baselines. The benchmark gap is that truckload bid evaluation also
 requires public calibration, fleet repositioning, operational feasibility, and
 latency-profit reporting.
+
+**Routing benchmark instances.** Classical public routing benchmarks such as
+Solomon's VRPTW instances and the larger Homberger-Gehring VRPTW instances made
+vehicle-routing algorithms comparable across papers [@solomon1987vrptw;
+@homberger2005vrptw]. FreightBidBench follows that reproducibility tradition,
+but the object is different. Static VRPTW instances evaluate route construction
+for a known customer set; FreightBidBench evaluates online accept/reject
+decisions where accepted loads change truck positions, consume driver clocks,
+interact with future stochastic tenders, and must be scored with decision
+latency and feasibility diagnostics.
+
+**Adjacent dynamic benchmarks and public mobility testbeds.** Public urban
+mobility studies have used taxi trip data to evaluate shareability networks and
+large-scale dynamic trip-vehicle assignment [@santi2014shareability;
+@alonsomora2017ondemand]. Recent stochastic VRP benchmarks such as SVRPBench
+move closer to benchmark artifacts for uncertain urban logistics by releasing
+constraint-rich instances with stochastic travel conditions and time windows
+[@heakl2025svrpbench]. FreightBidBench is complementary: it targets truckload
+tender acceptance rather than passenger pooling or parcel routing, with
+long-haul origin/destination freight flows, accept/reject economics, individual
+tractor state, HOS clocks, pickup/delivery appointments, and decision-latency
+reporting.
 
 **Learning-augmented optimization.** Recent work uses learned models to speed
 up routing and stochastic optimization. Nazari et al. and Kool et al. show that
@@ -255,6 +293,12 @@ Statistical reporting:
 - report mean, standard deviation, and 95% confidence intervals,
 - include the full benchmark manifest.
 
+The paper tables below use a compact slice of this reporting bundle: mean
+profit, retention, mean latency, infeasible accepts, HOS rest hours, and yard
+delay hours. The released benchmark CSVs also include p95 latency, rollout
+share, no-truck counts, pickup/delivery window misses, deadhead miles, standard
+deviations, and 95% confidence intervals.
+
 ## 9. Experimental Protocol
 
 FreightBidBench v0.2 defines three scenarios:
@@ -280,7 +324,7 @@ Presets:
 Command:
 
 ```bash
-python3 scripts/run_freightbidbench.py --preset standard --output-dir benchmark_runs/standard_v02
+python3 scripts/run_freightbidbench.py --preset paper --output-dir benchmark_runs/paper_v02
 ```
 
 Outputs:
@@ -289,89 +333,164 @@ Outputs:
 - `freightbidbench_static_label_fit.csv`,
 - `freightbidbench_policy_summary.csv`,
 - `freightbidbench_frontier_summary.csv`,
+- `freightbidbench_policy_delta_summary.csv`,
 - `freightbidbench_manifest.json`,
 - `freightbidbench_report.md`.
 
 ## 10. Results
 
-The current v0.2 standard run used three train/eval seed pairs across the
-`mild`, `tight`, and `scarce` scenarios. It used 600 rollout-label decisions per
-train/eval stream and evaluated the full 72-hour online horizon. The run wrote
-117 seed-level policy rows, 9 static-fit rows, 39 aggregate policy rows, and 21
-cascade-frontier rows. Total runtime was 1,269.34 seconds.
+The current v0.2 paper-preset run used ten train/eval seed pairs across the
+`mild`, `tight`, and `scarce` scenarios. It used 1,200 rollout-label decisions
+per train/eval stream and evaluated the full 72-hour online horizon. The run
+wrote 390 seed-level policy rows, 30 static-fit rows, 39 aggregate policy rows,
+and 21 cascade-frontier rows. Total runtime was 4,898.54 seconds.
 
 ### 10.1 Offline Label Fit
 
 The simple linear surrogate is intentionally weak under the v0.2 feasibility
-layer. Held-out accept/reject agreement was 58.8% in `mild`, 60.9% in `tight`,
-and 68.3% in `scarce`. This is useful for the benchmark paper: the reference
-surrogate is a baseline, not the contribution.
+layer. Held-out accept/reject agreement was 60.9% in `mild`, 62.6% in `tight`,
+and 69.8% in `scarce`. This is useful for the benchmark paper: the reference
+surrogate is a baseline, not the contribution. It also limits what can be
+inferred from the cascade policy: a weak surrogate can diagnose the benchmark,
+but it is not a strong test of selective escalation.
 
 ### 10.2 Policy Results
 
-**Table 4. FreightBidBench v0.2 standard policy results.** Profit, latency, and
-feasibility metrics are seed means over three train/eval seed pairs. Retention
-is measured against the finite rollout teacher in the same scenario.
+**Table 4. FreightBidBench v0.2 paper policy results.** Profit, uncertainty,
+latency, and infeasible-accept metrics are seed means over ten train/eval seed
+pairs. Retention is measured against the finite rollout teacher in the same
+scenario.
 
-| Scenario | Policy | Mean Profit | Retention | Mean Latency ms | Infeasible | HOS Rest h | Yard Delay h |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `mild` | Reject all | $0 | 0.0% | 0.000 | 0.0 | 0 | 0 |
-| `mild` | Accept all feasible | $1,082,891 | 101.7% | 0.040 | 0.0 | 2,053 | 783 |
-| `mild` | Myopic | $1,082,891 | 101.7% | 0.000 | 323.7 | 2,053 | 783 |
-| `mild` | Bid price | $1,083,424 | 101.8% | 0.001 | 312.0 | 2,050 | 782 |
-| `mild` | Linear surrogate | $917,369 | 86.3% | 0.004 | 112.3 | 1,540 | 666 |
-| `mild` | Cascade +/- $500 | $976,891 | 91.9% | 15.923 | 76.3 | 1,627 | 676 |
-| `mild` | Rollout teacher | $1,064,003 | 100.0% | 45.574 | 0.0 | 1,840 | 676 |
-| `tight` | Reject all | $0 | 0.0% | 0.000 | 0.0 | 0 | 0 |
-| `tight` | Accept all feasible | $864,383 | 91.7% | 0.023 | 0.0 | 1,683 | 625 |
-| `tight` | Myopic | $866,894 | 92.0% | 0.000 | 546.7 | 1,680 | 625 |
-| `tight` | Bid price | $866,894 | 92.0% | 0.001 | 533.7 | 1,680 | 625 |
-| `tight` | Linear surrogate | $739,135 | 78.5% | 0.004 | 87.3 | 1,217 | 539 |
-| `tight` | Cascade +/- $500 | $812,794 | 86.3% | 11.069 | 34.3 | 1,363 | 538 |
-| `tight` | Rollout teacher | $942,219 | 100.0% | 28.549 | 0.0 | 1,753 | 567 |
-| `scarce` | Reject all | $0 | 0.0% | 0.000 | 0.0 | 0 | 0 |
-| `scarce` | Accept all feasible | $714,150 | 94.3% | 0.016 | 0.0 | 1,373 | 512 |
-| `scarce` | Myopic | $718,085 | 94.8% | 0.000 | 754.3 | 1,377 | 515 |
-| `scarce` | Bid price | $718,085 | 94.8% | 0.001 | 740.0 | 1,377 | 515 |
-| `scarce` | Linear surrogate | $487,441 | 64.4% | 0.004 | 40.3 | 813 | 373 |
-| `scarce` | Cascade +/- $500 | $577,343 | 76.3% | 7.354 | 0.0 | 950 | 370 |
-| `scarce` | Rollout teacher | $757,682 | 100.0% | 17.438 | 0.0 | 1,403 | 420 |
+| Scenario | Policy | Mean Profit | CI95 Halfwidth | Retention | Mean Latency ms | Infeasible |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `mild` | Reject all | $0 | +/- $0 | 0.0% | 0.000 | 0.0 |
+| `mild` | Accept all feasible | $1,052,952 | +/- $38,153 | 99.8% | 0.037 | 0.0 |
+| `mild` | Myopic | $1,053,025 | +/- $38,112 | 99.8% | 0.000 | 333.0 |
+| `mild` | Bid price | $1,058,794 | +/- $37,128 | 100.3% | 0.001 | 318.4 |
+| `mild` | Linear surrogate | $875,158 | +/- $64,383 | 82.8% | 0.005 | 113.3 |
+| `mild` | Cascade +/- $500 | $969,668 | +/- $53,197 | 91.8% | 17.293 | 50.2 |
+| `mild` | Rollout teacher | $1,056,144 | +/- $28,206 | 100.0% | 46.170 | 0.0 |
+| `tight` | Reject all | $0 | +/- $0 | 0.0% | 0.000 | 0.0 |
+| `tight` | Accept all feasible | $846,820 | +/- $25,738 | 92.3% | 0.024 | 0.0 |
+| `tight` | Myopic | $850,562 | +/- $24,972 | 92.7% | 0.000 | 552.8 |
+| `tight` | Bid price | $851,672 | +/- $25,250 | 92.9% | 0.001 | 540.1 |
+| `tight` | Linear surrogate | $715,801 | +/- $35,999 | 78.1% | 0.004 | 102.5 |
+| `tight` | Cascade +/- $500 | $777,309 | +/- $32,969 | 84.8% | 10.352 | 32.5 |
+| `tight` | Rollout teacher | $917,440 | +/- $25,147 | 100.0% | 28.813 | 0.0 |
+| `scarce` | Reject all | $0 | +/- $0 | 0.0% | 0.000 | 0.0 |
+| `scarce` | Accept all feasible | $705,492 | +/- $34,440 | 94.0% | 0.016 | 0.0 |
+| `scarce` | Myopic | $706,779 | +/- $36,074 | 94.2% | 0.000 | 769.9 |
+| `scarce` | Bid price | $705,933 | +/- $35,514 | 94.1% | 0.001 | 756.5 |
+| `scarce` | Linear surrogate | $518,511 | +/- $28,954 | 69.1% | 0.004 | 117.5 |
+| `scarce` | Cascade +/- $500 | $574,895 | +/- $36,217 | 76.6% | 6.809 | 9.4 |
+| `scarce` | Rollout teacher | $750,179 | +/- $10,847 | 100.0% | 17.067 | 0.0 |
 
-Two findings matter for the benchmark paper. First, feasibility metrics are not
-secondary bookkeeping: myopic and bid-price policies create hundreds of
-infeasible accept attempts in the v0.2 standard run. Second, rollout is much
-slower under feasibility, with mean latency from 17.438 ms to 45.574 ms across
-scenarios. This creates a clear latency-quality benchmark for future methods.
+Two findings matter for the calibration paper. First, feasibility metrics are
+not secondary bookkeeping: myopic and bid-price policies create hundreds of
+infeasible accept attempts in the v0.2 paper run. Second, the policy-quality
+gaps are narrower than a latency-frontier paper would need. Myopic and
+bid-price policies retain 92-100% of rollout-teacher profit across the three
+scenarios, and `bid_price` slightly exceeds the finite rollout teacher in
+`mild`. This does not make rollout invalid: the teacher is stochastic and
+limited-horizon, not an oracle. It does mean that rollout retention should be
+read as a reference metric rather than an upper-bound claim.
 
-### 10.3 Cascade Frontier
+Table 5 breaks out the feasibility events behind the aggregate infeasible
+counts for the central policies. Event counters are seed means and are not
+mutually exclusive: a failed acceptance check can expose more than one
+feasibility reason. The pickup-window column dominates the myopic and bid-price
+failure mode, which is why the appointment-window ablation in Section 10.4 is
+so large. The table is deliberately restricted to the feasibility-respecting
+reference policies and the two simple heuristics that drive the ablation
+mechanism; Table 4 reports aggregate infeasible counts for the linear surrogate
+and representative cascade, and the released CSV includes their full event
+counters.
 
-The cascade frontier shows the tradeoff between rollout-call share and profit
-retention. At the widest tested band, the cascade reached 97.1% retention in
-`mild`, 91.8% in `tight`, and 90.5% in `scarce`. The result is not a final
-method claim; it shows that the benchmark can expose meaningful frontier
-differences across scenarios.
+**Table 5. Selected feasibility diagnostics.** Event counters and hours are
+seed means over the same ten train/eval seed pairs as Table 4.
+
+| Scenario | Policy | No Truck | Pickup Miss | Delivery Miss | HOS Rest h | Yard Delay h |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `mild` | Accept all feasible | 0.0 | 0.0 | 0.0 | 2,009 | 758 |
+| `mild` | Myopic | 7.4 | 318.8 | 14.2 | 2,008 | 757 |
+| `mild` | Bid price | 8.5 | 301.8 | 16.6 | 2,009 | 759 |
+| `mild` | Rollout teacher | 0.0 | 0.0 | 0.0 | 1,825 | 672 |
+| `tight` | Accept all feasible | 0.0 | 0.0 | 0.0 | 1,627 | 615 |
+| `tight` | Myopic | 10.7 | 540.3 | 12.5 | 1,629 | 616 |
+| `tight` | Bid price | 13.0 | 525.6 | 14.5 | 1,629 | 615 |
+| `tight` | Rollout teacher | 0.0 | 0.0 | 0.0 | 1,711 | 553 |
+| `scarce` | Accept all feasible | 0.0 | 0.0 | 0.0 | 1,353 | 505 |
+| `scarce` | Myopic | 12.2 | 755.8 | 14.1 | 1,353 | 505 |
+| `scarce` | Bid price | 16.6 | 739.2 | 17.3 | 1,348 | 503 |
+| `scarce` | Rollout teacher | 0.0 | 0.0 | 0.0 | 1,428 | 430 |
+
+In `scarce`, myopic averages 755.8 pickup-window-miss accept attempts per run,
+and bid price averages 739.2. This is the direct mechanism behind the +194.0%
+myopic-profit increase when appointment windows are disabled.
+
+Paired-seed deltas give the cleanest significance view because each policy is
+evaluated on the same evaluation streams as the rollout teacher. Table 6 reports
+bootstrap confidence intervals for representative policies.
+
+**Table 6. Paired profit deltas versus rollout teacher.** Negative values mean
+the policy earns less profit than rollout on the same train/eval seed pair.
+
+| Scenario | Policy | Mean Delta | Paired Bootstrap 95% CI |
+| --- | --- | ---: | ---: |
+| `mild` | Myopic | -$3,119 | [-$39,436, $28,024] |
+| `mild` | Bid price | $2,650 | [-$30,887, $31,101] |
+| `mild` | Cascade +/- $500 | -$86,475 | [-$127,858, -$56,708] |
+| `tight` | Myopic | -$66,877 | [-$84,158, -$52,347] |
+| `tight` | Bid price | -$65,768 | [-$83,425, -$50,163] |
+| `tight` | Cascade +/- $500 | -$140,130 | [-$166,453, -$114,757] |
+| `scarce` | Myopic | -$43,399 | [-$71,023, -$14,574] |
+| `scarce` | Bid price | -$44,246 | [-$71,048, -$15,662] |
+| `scarce` | Cascade +/- $500 | -$175,283 | [-$204,922, -$146,102] |
+
+The table confirms the calibration story while preserving a positive
+future-value signal. In `mild`, simple policies are not statistically
+distinguishable from the finite rollout teacher. In `tight` and `scarce`,
+rollout earns roughly 5-8% more than myopic and bid-price policies on the same
+paired seeds, with confidence intervals excluding zero. The gap is real, but it
+is small relative to total profit and current simple-policy performance. The
+representative cascade is materially worse than both rollout and the simple
+heuristics, so v0.2 should not be presented as evidence that selective
+escalation is effective.
+
+### 10.3 Latency and Cascade Diagnostics
+
+Rollout is much slower under feasibility, with mean latency from 17.067 ms to
+46.170 ms across scenarios, but the current cascade does not occupy an
+attractive middle ground. At the widest tested band, the cascade reached 96.0%
+retention in `mild`, 90.5% in `tight`, and 88.9% in `scarce`; however, the
+simple myopic and bid-price policies are both faster and more profitable at the
+representative +/- $500 cascade setting. This is a useful negative diagnostic:
+v0.2 exposes what a future benchmark must fix before latency-quality frontiers
+can be treated as method evidence.
 
 Generated figures:
 
 **Figure 1. Profit retention by policy.**
-`benchmark_runs/standard_v02/figures/profit_retention_by_policy.svg`
+`papers/figures/profit_retention_by_policy.png`
 
-**Figure 2. Latency-profit frontier.**
-`benchmark_runs/standard_v02/figures/latency_profit_frontier.svg`
+**Figure 2. Latency-profit diagnostic frontier.**
+`papers/figures/latency_profit_frontier.png`
 
-**Figure 3. Rollout-call share versus profit retention.**
-`benchmark_runs/standard_v02/figures/rollout_share_profit_frontier.svg`
+**Figure 3. Rollout-call share versus profit retention diagnostic.**
+`benchmark_runs/paper_v02/figures/rollout_share_profit_frontier.svg`
 
 **Figure 4. Infeasible accept attempts by policy.**
-`benchmark_runs/standard_v02/figures/infeasible_accepts_by_policy.svg`
+`benchmark_runs/paper_v02/figures/infeasible_accepts_by_policy.svg`
 
 ### 10.4 Operational Feasibility Ablation
 
 We reran the standard preset with individual feasibility features disabled.
-These are sensitivity tests, not recommended benchmark settings. Table 5 reports
-the change in myopic profit relative to the full-feasibility benchmark.
+These are sensitivity tests, not recommended benchmark settings, and we keep
+them on the cheaper standard preset because each toggle multiplies total run
+count. Table 7 reports the change in myopic profit relative to the
+full-feasibility benchmark.
 
-**Table 5. Standard-preset feasibility ablation.** Full profit is the
+**Table 7. Standard-preset feasibility ablation.** Full profit is the
 full-feasibility myopic profit. Other columns report profit change after
 disabling one or more feasibility features.
 
@@ -396,17 +515,30 @@ reported together with operational feasibility metrics.
 
 ## 11. Discussion
 
-The central benchmark claim is that feasibility materially changes the
-accept/reject problem. The ablation results strengthen this claim: appointment
-windows and HOS constraints change the benchmark regime by more than the
-current differences among several reference policies. A policy that looks
-attractive under aggregate state-level availability can create pickup-window
-misses, excess HOS rest, or yard-delay exposure once individual truck
-feasibility is considered.
+The central benchmark claim is that feasibility changes what is being measured.
+The ablation results show that appointment windows and HOS constraints change
+the benchmark regime by more than the current differences among several
+reference policies. A policy that looks attractive under aggregate state-level
+availability can create pickup-window misses, excess HOS rest, or yard-delay
+exposure once individual truck feasibility is considered.
 
-The latency result is also important: operational feasibility increases rollout
-runtime. This makes FreightBidBench useful for studying selective evaluation,
-surrogates, and other learning-augmented acceleration methods.
+The full-feasibility policy table adds a second lesson. In v0.2, simple
+policies are surprisingly competitive, and the representative cascade is not.
+This is not a contradiction of the ablation result. It is a diagnosis of the
+current benchmark economics. Accepted-but-unserviceable tenders are mostly
+recorded as feasibility events rather than charged as service failures; terminal
+truck position has little carryover value at the end of a 72-hour horizon; and
+the demand process has limited temporal structure. These choices make it hard
+for future-aware policies to separate from immediate-margin policies.
+
+For v0.3, the highest-leverage changes are therefore not longer runtimes by
+themselves. The benchmark should first add explicit service-failure penalties
+for accepted-but-unserviceable tenders, terminal value for end-of-horizon truck
+positions, and temporal demand waves that make repositioning valuable. It should
+also strengthen the quality anchor by reporting retention versus both rollout
+and the best simple baseline, and by adding a hindsight realized-seed diagnostic
+bound. Finally, the cascade thesis should be tested with a stronger nonlinear
+surrogate before drawing conclusions about selective escalation.
 
 ## 12. Limitations
 
@@ -416,22 +548,44 @@ reference Python latency. It does not model road closures, traffic, weather,
 team drivers, split sleeper rules, maintenance, customer-specific facilities,
 or private tender distributions.
 
+It is also not yet validated as a community benchmark in the strongest sense.
+The current policy set is author-implemented, the surrogate baseline is linear,
+and the generated tender distribution has not been tested against held-out
+private tender aggregates. A stronger benchmark release should include external
+policy submissions or stronger nonlinear baselines, calibration checks against
+partner or held-out aggregate data, scenario axes beyond fleet scarcity, and a
+realized-seed hindsight bound so rollout retention is anchored above by a
+diagnostic ceiling.
+
 These limitations should be stated as benchmark boundaries, not hidden.
 
 ## 13. Reproducibility
 
 The benchmark release is designed around command-line reproduction rather than
-manual notebook execution. From the `faster_planning/` directory, the v0.2
-standard reference run is:
+manual notebook execution. The release artifact is identified by Git tag
+`v0.2.1` at <https://github.com/aswincsekar/freightbidbench>. Reproduction
+should start from:
 
 ```bash
-python3 scripts/run_freightbidbench.py --preset standard --output-dir benchmark_runs/standard_v02
+git checkout v0.2.1
+```
+
+From the repository root, the v0.2.1 paper reference run is:
+
+```bash
+python3 scripts/run_freightbidbench.py --preset paper --output-dir benchmark_runs/paper_v02
 ```
 
 Figures are generated from the resulting CSVs with:
 
 ```bash
-python3 scripts/plot_freightbidbench.py --run-dir benchmark_runs/standard_v02
+python3 scripts/plot_freightbidbench.py --run-dir benchmark_runs/paper_v02
+```
+
+Paired policy deltas are generated with:
+
+```bash
+python3 scripts/analyze_policy_deltas.py --run-dir benchmark_runs/paper_v02
 ```
 
 Every benchmark run writes a manifest containing:
@@ -456,7 +610,7 @@ Every benchmark run writes a manifest containing:
 
 Benchmark submissions should include the manifest and all summary CSVs.
 The current reference manifest is
-`benchmark_runs/standard_v02/freightbidbench_manifest.json`.
+`benchmark_runs/paper_v02/freightbidbench_manifest.json`.
 
 The standard feasibility ablation suite can be reproduced with:
 
@@ -467,10 +621,16 @@ python3 scripts/run_feasibility_ablation_suite.py --preset standard \
 
 ## 14. Conclusion
 
-FreightBidBench provides a public, reproducible testbed for latency-aware
-truckload bid acceptance. Its value is not that it solves the problem, but that
-it gives researchers a shared environment where closed-loop profit, latency,
-and operational feasibility can be compared under identical stochastic seeds.
+FreightBidBench provides a public, reproducible testbed for real-time truckload
+bid acceptance under operational feasibility. The v0.2 result is a calibration
+result: benchmarks that omit appointment windows, HOS clocks, and individual
+truck feasibility can substantially misstate policy performance, while the
+current full-feasibility environment makes simple policies near-Pareto and shows
+that the finite rollout teacher is a reference policy rather than a reliable
+upper bound. This gives the benchmark a clear next step. Future latency-quality
+claims should build on stronger service-failure economics, terminal value,
+temporal demand structure, a realized-seed hindsight diagnostic ceiling, and
+stronger teacher and surrogate baselines.
 
 ## References
 

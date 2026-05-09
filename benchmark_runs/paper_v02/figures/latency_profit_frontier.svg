@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="600" viewBox="0 0 920 600">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="460.0" y="34.0" font-family="Arial, sans-serif" font-size="22" text-anchor="middle" fill="#111827">Latency-Profit Frontier</text>
+<text x="460.0" y="580.0" font-family="Arial, sans-serif" font-size="13" text-anchor="middle" fill="#111827">Mean latency (ms)</text>
+<text x="24.0" y="301.0" font-family="Arial, sans-serif" font-size="13" text-anchor="middle" fill="#111827">Profit retention vs rollout</text>
+<line x1="82.0" y1="530.0" x2="740.0" y2="530.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72.0" y="534.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">68%</text>
+<line x1="82.0" y1="438.4" x2="740.0" y2="438.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72.0" y="442.4" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">76%</text>
+<line x1="82.0" y1="346.8" x2="740.0" y2="346.8" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72.0" y="350.8" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">83%</text>
+<line x1="82.0" y1="255.2" x2="740.0" y2="255.2" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72.0" y="259.2" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">90%</text>
+<line x1="82.0" y1="163.6" x2="740.0" y2="163.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72.0" y="167.6" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">98%</text>
+<line x1="82.0" y1="72.0" x2="740.0" y2="72.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72.0" y="76.0" font-family="Arial, sans-serif" font-size="11" text-anchor="end" fill="#111827">105%</text>
+<line x1="82.0" y1="72.0" x2="82.0" y2="530.0" stroke="#f1f5f9" stroke-width="1"/>
+<text x="82.0" y="550.0" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#111827">0.0</text>
+<line x1="213.6" y1="72.0" x2="213.6" y2="530.0" stroke="#f1f5f9" stroke-width="1"/>
+<text x="213.6" y="550.0" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#111827">7.1</text>
+<line x1="345.2" y1="72.0" x2="345.2" y2="530.0" stroke="#f1f5f9" stroke-width="1"/>
+<text x="345.2" y="550.0" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#111827">14.2</text>
+<line x1="476.8" y1="72.0" x2="476.8" y2="530.0" stroke="#f1f5f9" stroke-width="1"/>
+<text x="476.8" y="550.0" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#111827">21.2</text>
+<line x1="608.4" y1="72.0" x2="608.4" y2="530.0" stroke="#f1f5f9" stroke-width="1"/>
+<text x="608.4" y="550.0" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#111827">28.3</text>
+<line x1="740.0" y1="72.0" x2="740.0" y2="530.0" stroke="#f1f5f9" stroke-width="1"/>
+<text x="740.0" y="550.0" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#111827">35.4</text>
+<line x1="82.0" y1="72.0" x2="82.0" y2="530.0" stroke="#475569" stroke-width="1"/>
+<line x1="82.0" y1="530.0" x2="740.0" y2="530.0" stroke="#475569" stroke-width="1"/>
+<circle cx="125.4" cy="334.8" r="4" fill="#0f766e"/>
+<line x1="125.4" y1="334.8" x2="184.1" y2="315.6" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="184.1" cy="315.6" r="4" fill="#0f766e"/>
+<line x1="184.1" y1="315.6" x2="269.6" y2="284.2" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="269.6" cy="284.2" r="4" fill="#0f766e"/>
+<line x1="269.6" y1="284.2" x2="403.5" y2="236.8" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="403.5" cy="236.8" r="4" fill="#0f766e"/>
+<line x1="403.5" y1="236.8" x2="515.1" y2="218.6" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="515.1" cy="218.6" r="4" fill="#0f766e"/>
+<line x1="515.1" y1="218.6" x2="606.5" y2="199.5" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="606.5" cy="199.5" r="4" fill="#0f766e"/>
+<line x1="606.5" y1="199.5" x2="691.3" y2="184.8" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="691.3" cy="184.8" r="4" fill="#0f766e"/>
+<rect x="780.0" y="88.0" width="14.0" height="14.0" rx="2" fill="#0f766e"/>
+<text x="800.0" y="100.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Mild</text>
+<circle cx="110.7" cy="394.2" r="4" fill="#2563eb"/>
+<line x1="110.7" y1="394.2" x2="147.1" y2="385.5" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="147.1" cy="385.5" r="4" fill="#2563eb"/>
+<line x1="147.1" y1="385.5" x2="196.6" y2="351.5" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="196.6" cy="351.5" r="4" fill="#2563eb"/>
+<line x1="196.6" y1="351.5" x2="274.4" y2="324.7" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="274.4" cy="324.7" r="4" fill="#2563eb"/>
+<line x1="274.4" y1="324.7" x2="327.5" y2="293.3" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="327.5" cy="293.3" r="4" fill="#2563eb"/>
+<line x1="327.5" y1="293.3" x2="375.3" y2="284.5" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="375.3" cy="284.5" r="4" fill="#2563eb"/>
+<line x1="375.3" y1="284.5" x2="441.2" y2="252.9" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="441.2" cy="252.9" r="4" fill="#2563eb"/>
+<rect x="780.0" y="114.0" width="14.0" height="14.0" rx="2" fill="#2563eb"/>
+<text x="800.0" y="126.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Tight</text>
+<circle cx="98.9" cy="492.5" r="4" fill="#b91c1c"/>
+<line x1="98.9" y1="492.5" x2="123.1" y2="487.6" stroke="#b91c1c" stroke-width="2.5"/>
+<circle cx="123.1" cy="487.6" r="4" fill="#b91c1c"/>
+<line x1="123.1" y1="487.6" x2="162.2" y2="474.5" stroke="#b91c1c" stroke-width="2.5"/>
+<circle cx="162.2" cy="474.5" r="4" fill="#b91c1c"/>
+<line x1="162.2" y1="474.5" x2="208.6" y2="426.1" stroke="#b91c1c" stroke-width="2.5"/>
+<circle cx="208.6" cy="426.1" r="4" fill="#b91c1c"/>
+<line x1="208.6" y1="426.1" x2="233.5" y2="402.1" stroke="#b91c1c" stroke-width="2.5"/>
+<circle cx="233.5" cy="402.1" r="4" fill="#b91c1c"/>
+<line x1="233.5" y1="402.1" x2="259.2" y2="346.1" stroke="#b91c1c" stroke-width="2.5"/>
+<circle cx="259.2" cy="346.1" r="4" fill="#b91c1c"/>
+<line x1="259.2" y1="346.1" x2="289.3" y2="272.6" stroke="#b91c1c" stroke-width="2.5"/>
+<circle cx="289.3" cy="272.6" r="4" fill="#b91c1c"/>
+<rect x="780.0" y="140.0" width="14.0" height="14.0" rx="2" fill="#b91c1c"/>
+<text x="800.0" y="152.0" font-family="Arial, sans-serif" font-size="12" text-anchor="start" fill="#111827">Scarce</text>
+</svg>

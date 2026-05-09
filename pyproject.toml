@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "freightbidbench"
-version = "0.2.0"
+version = "0.2.1"
 description = "Public-calibrated benchmark for real-time truckload bid acceptance."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [
-  { name = "Aswin Sekar", email = "aswincsekar@gmail.com" }
+  { name = "Aswin Chandrasekaran", email = "aswincsekar@gmail.com" }
 ]
 keywords = [
   "freight",
@@ -22,7 +22,7 @@ keywords = [
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: MIT License",
+  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -36,4 +36,5 @@ py-modules = []
 
 [tool.freightbidbench]
 benchmark-version = "freightbidbench-v0.2"
-reference-run = "benchmark_runs/standard_v02"
+release = "v0.2.1"
+reference-run = "benchmark_runs/paper_v02"

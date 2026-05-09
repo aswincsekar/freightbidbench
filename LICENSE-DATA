@@ -1,0 +1,15 @@
+FreightBidBench Data and Benchmark Artifact License
+
+Benchmark manifests, generated benchmark CSV outputs, generated reports,
+generated figures, and files under benchmark_runs/ are licensed under the
+Creative Commons Attribution 4.0 International License (CC BY 4.0).
+
+You may share and adapt these artifacts for any purpose, including commercial
+use, provided that you give appropriate credit, provide a link to the license,
+and indicate if changes were made.
+
+License text: https://creativecommons.org/licenses/by/4.0/legalcode
+
+Suggested attribution:
+
+Aswin Chandrasekaran, FreightBidBench v0.2.1 benchmark artifacts.

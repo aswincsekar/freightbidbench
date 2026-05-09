@@ -1,11 +1,11 @@
-# FreightBidBench v0.2 Release Checklist
+# FreightBidBench v0.2.1 Release Checklist
 
 ## Required For First Benchmark Paper
 
 - [x] Public benchmark runner: `scripts/run_freightbidbench.py`
 - [x] Feasibility layer: `scripts/freight_feasibility.py`
-- [x] Standard benchmark run: `benchmark_runs/standard_v02`
-- [x] Reproducibility manifest: `benchmark_runs/standard_v02/freightbidbench_manifest.json`
+- [x] Paper benchmark run: `benchmark_runs/paper_v02`
+- [x] Reproducibility manifest: `benchmark_runs/paper_v02/freightbidbench_manifest.json`
 - [x] Aggregate policy summary CSV
 - [x] Aggregate frontier summary CSV
 - [x] Dependency-free plotting script
@@ -18,15 +18,16 @@
 ## Before External Release
 
 - [x] Decide repository layout for public release.
-- [x] Add a top-level license.
+- [x] Add Apache-2.0 code/documentation license.
+- [x] Add CC BY 4.0 generated-artifact license note.
 - [x] Add a citation file, e.g. `CITATION.cff`.
 - [x] Add a minimal CI smoke command:
   `python3 scripts/run_freightbidbench.py --preset smoke --output-dir benchmark_runs/smoke_ci`
 - [x] Add a clean-data note explaining which raw files can be redistributed.
-- [ ] Confirm processed CSVs are redistributable or provide regeneration scripts only.
+- [x] Confirm generated paper-run CSVs contain synthetic benchmark outputs only.
 - [x] Add figure captions to the final manuscript format.
 - [ ] Tighten related work with final venue citation style.
-- [ ] Decide whether to run the heavier `paper` preset.
+- [x] Run the heavier `paper` preset.
 - [x] Add appendix with manifest schema and CSV column dictionary.
 - [x] Install local LaTeX toolchain and compile the draft once.
 - [x] Add local feasibility ablation flags and smoke wrapper.
@@ -35,7 +36,7 @@
 - [x] Add policy-extension documentation.
 - [x] Resolve current LaTeX citation and layout warnings.
 - [ ] Push to GitHub and confirm CI passes remotely.
-- [ ] Create `v0.2.0` tag after remote CI passes.
+- [ ] Create `v0.2.1` tag after remote CI passes.
 
 ## Claims To Keep
 

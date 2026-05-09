@@ -2,8 +2,9 @@ PYTHON ?= python3
 SMOKE_DIR ?= benchmark_runs/ci_smoke
 QUICKSTART_DIR ?= benchmark_runs/quickstart
 STANDARD_DIR ?= benchmark_runs/standard_v02
+PAPER_DIR ?= benchmark_runs/paper_v02
 
-.PHONY: help compile test smoke quickstart standard figures paper-pdf
+.PHONY: help compile test smoke quickstart standard figures deltas paper-pdf
 
 help:
 	@printf "FreightBidBench local targets:\n"
@@ -11,6 +12,7 @@ help:
 	@printf "  make smoke      Run the tiny benchmark contract used by CI\n"
 	@printf "  make quickstart Run smoke preset and generate figures\n"
 	@printf "  make standard   Run the standard preset into benchmark_runs/standard_v02\n"
+	@printf "  make deltas     Compute paired policy deltas for benchmark_runs/paper_v02\n"
 	@printf "  make paper-pdf  Build the LaTeX paper draft\n"
 
 compile:
@@ -45,6 +47,10 @@ standard:
 figures:
 	$(PYTHON) scripts/plot_freightbidbench.py \
 	  --run-dir $(STANDARD_DIR)
+
+deltas:
+	$(PYTHON) scripts/analyze_policy_deltas.py \
+	  --run-dir $(PAPER_DIR)
 
 paper-pdf:
 	cd papers && mkdir -p build

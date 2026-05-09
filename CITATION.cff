@@ -1,14 +1,14 @@
 cff-version: 1.2.0
 message: "If you use FreightBidBench, please cite this benchmark package."
-title: "FreightBidBench: A Public-Calibrated Benchmark for Real-Time Truckload Bid Acceptance"
-version: "0.2.0"
-date-released: "2026-05-06"
+title: "FreightBidBench: Feasibility Calibration for Public Real-Time Truckload Bid Benchmarks"
+version: "0.2.1"
+date-released: "2026-05-09"
 type: software
 authors:
-  - family-names: "Sekar"
+  - family-names: "Chandrasekaran"
     given-names: "Aswin"
 repository-code: "https://github.com/aswincsekar/freightbidbench"
-license: MIT
+license: Apache-2.0
 keywords:
   - freight
   - truckload
