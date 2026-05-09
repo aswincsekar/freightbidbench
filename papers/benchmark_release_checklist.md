@@ -35,8 +35,9 @@
 - [x] Fold standard feasibility ablation results into the manuscript drafts.
 - [x] Add policy-extension documentation.
 - [x] Resolve current LaTeX citation and layout warnings.
-- [ ] Push to GitHub and confirm CI passes remotely.
-- [ ] Create `v0.2.1` tag after remote CI passes.
+- [x] Push to GitHub.
+- [x] Create `v0.2.1` tag on GitHub.
+- [x] Confirm remote CI passes.
 
 ## Claims To Keep
 
