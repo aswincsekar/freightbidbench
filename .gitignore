@@ -24,3 +24,4 @@ benchmark_runs/quickstart/
 benchmark_runs/feasibility_ablations*/
 benchmark_runs/policy_smoke/
 papers/build/
+freightbidbench_arxiv_check/
