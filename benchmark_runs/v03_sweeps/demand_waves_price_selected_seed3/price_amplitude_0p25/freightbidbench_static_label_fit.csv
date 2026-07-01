@@ -1,0 +1,7 @@
+scenario,horizon_hours,loads_per_hour,fleet_size,base_cost_per_mile,fixed_load_cost,value_scale_dollars,train_seed,eval_seed,train_label_count,eval_label_count,agreement,mae,p90_abs_error,cell_elapsed_seconds
+freightbidbench_tight_capacity,72,14,70,3.10,250.00,3000.00,20260506,20260507,20,20,0.950000,634.08,1451.68,39.67
+freightbidbench_tight_capacity,72,14,70,3.10,250.00,3000.00,20260508,20260509,20,20,0.900000,2974.90,9595.69,37.52
+freightbidbench_tight_capacity,72,14,70,3.10,250.00,3000.00,20260510,20260511,20,20,0.750000,6519.70,12622.75,34.82
+freightbidbench_scarce_capacity,72,16,55,3.20,250.00,3400.00,20260506,20260507,20,20,0.650000,889.87,1944.71,28.91
+freightbidbench_scarce_capacity,72,16,55,3.20,250.00,3400.00,20260508,20260509,20,20,0.750000,3750.17,12658.52,26.89
+freightbidbench_scarce_capacity,72,16,55,3.20,250.00,3400.00,20260510,20260511,20,20,0.500000,3058.99,3159.32,30.94

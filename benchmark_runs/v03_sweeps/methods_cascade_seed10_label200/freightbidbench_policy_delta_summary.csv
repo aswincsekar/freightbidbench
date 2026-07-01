@@ -1,0 +1,16 @@
+scenario,scenario_label,policy,policy_label,n_pairs,mean_delta_vs_rollout,bootstrap_ci95_low,bootstrap_ci95_high
+freightbidbench_mild_capacity,mild,accept_all_feasible,Accept all feasible,10,873.40,-23408.65,25634.66
+freightbidbench_mild_capacity,mild,myopic_margin,Myopic,10,-2506.50,-27093.33,21820.91
+freightbidbench_mild_capacity,mild,bid_price,Bid price,10,1369.27,-22468.55,25524.89
+freightbidbench_mild_capacity,mild,surrogate_linear,Linear surrogate,10,-25392.47,-47720.70,-2942.42
+freightbidbench_mild_capacity,mild,cascade_surrogate_rollout,Cascade +/- $500,10,-4177.63,-18200.09,11036.06
+freightbidbench_tight_capacity,tight,accept_all_feasible,Accept all feasible,10,-111182.49,-133099.76,-86491.74
+freightbidbench_tight_capacity,tight,myopic_margin,Myopic,10,-112717.24,-137069.93,-87353.54
+freightbidbench_tight_capacity,tight,bid_price,Bid price,10,-109541.08,-134844.63,-83401.69
+freightbidbench_tight_capacity,tight,surrogate_linear,Linear surrogate,10,-70978.56,-98442.14,-37746.70
+freightbidbench_tight_capacity,tight,cascade_surrogate_rollout,Cascade +/- $500,10,-23314.05,-61173.00,11640.79
+freightbidbench_scarce_capacity,scarce,accept_all_feasible,Accept all feasible,10,-136763.18,-171656.91,-105385.46
+freightbidbench_scarce_capacity,scarce,myopic_margin,Myopic,10,-143211.54,-179487.08,-109938.07
+freightbidbench_scarce_capacity,scarce,bid_price,Bid price,10,-144819.10,-179731.69,-112143.90
+freightbidbench_scarce_capacity,scarce,surrogate_linear,Linear surrogate,10,-109592.28,-162897.18,-65187.84
+freightbidbench_scarce_capacity,scarce,cascade_surrogate_rollout,Cascade +/- $500,10,-20733.81,-33394.48,-7200.02

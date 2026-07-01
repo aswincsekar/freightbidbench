@@ -1,0 +1,5 @@
+wave_mode,wave_amplitude,scenario,rollout_teacher_profit,best_simple_policy,best_simple_profit,best_simple_retention_vs_rollout,best_simple_gap_pp,gate_met
+price,0.000000,tight,47969.55,accept_all_feasible,49466.26,1.031201,-3.12,False
+price,0.000000,scarce,40203.77,accept_all_feasible,45171.74,1.123570,-12.36,False
+price,0.500000,tight,45875.90,accept_all_feasible,49466.26,1.078262,-7.83,False
+price,0.500000,scarce,35884.80,accept_all_feasible,45171.74,1.258799,-25.88,False

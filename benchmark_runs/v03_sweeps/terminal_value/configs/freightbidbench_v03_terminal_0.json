@@ -1,0 +1,106 @@
+{
+  "benchmark_version": "freightbidbench-v0.3-dev",
+  "scenario_config_version": "scenario-v0.3.0",
+  "policy_set_version": "policy-set-v0.2.1",
+  "default_first_seed": 20260506,
+  "seed_rule": "train_seed = first_seed + 2*i; eval_seed = train_seed + 1",
+  "source_inputs": {
+    "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
+    "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
+  },
+  "scenarios": {
+    "mild": {
+      "name": "freightbidbench_mild_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 12,
+      "fleet_size": 90,
+      "base_cost_per_mile": 2.95,
+      "fixed_load_cost": 250.0,
+      "value_scale_dollars": 2400.0,
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.0,
+      "demand_wave_schedule": null,
+      "purpose": "Loose capacity regime where myopic policies should be competitive."
+    },
+    "tight": {
+      "name": "freightbidbench_tight_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 14,
+      "fleet_size": 70,
+      "base_cost_per_mile": 3.1,
+      "fixed_load_cost": 250.0,
+      "value_scale_dollars": 3000.0,
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.0,
+      "demand_wave_schedule": null,
+      "purpose": "Moderate capacity scarcity where opportunity cost should matter."
+    },
+    "scarce": {
+      "name": "freightbidbench_scarce_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 16,
+      "fleet_size": 55,
+      "base_cost_per_mile": 3.2,
+      "fixed_load_cost": 250.0,
+      "value_scale_dollars": 3400.0,
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.0,
+      "demand_wave_schedule": null,
+      "purpose": "High-demand, low-fleet regime where poor decisions compound."
+    }
+  },
+  "presets": {
+    "smoke": {
+      "description": "One seed pair on the tight scenario for CI and quick checks.",
+      "scenarios": [
+        "tight"
+      ],
+      "seed_count": 1,
+      "label_limit": 200,
+      "eval_load_limit": 250
+    },
+    "standard": {
+      "description": "Three seed pairs across mild, tight, and scarce regimes.",
+      "scenarios": [
+        "mild",
+        "tight",
+        "scarce"
+      ],
+      "seed_count": 3,
+      "label_limit": 600,
+      "eval_load_limit": null
+    },
+    "paper": {
+      "description": "Ten seed pairs across all regimes for preliminary paper tables.",
+      "scenarios": [
+        "mild",
+        "tight",
+        "scarce"
+      ],
+      "seed_count": 10,
+      "label_limit": 1200,
+      "eval_load_limit": null
+    }
+  },
+  "policies": {
+    "default": [
+      "reject_all",
+      "accept_all_feasible",
+      "myopic_margin",
+      "bid_price",
+      "surrogate_linear",
+      "rollout_teacher"
+    ],
+    "cascade": "cascade_surrogate_rollout"
+  },
+  "cascade_bands_dollars": [
+    0.0,
+    100.0,
+    250.0,
+    500.0,
+    700.0,
+    900.0,
+    1200.0
+  ],
+  "representative_cascade_band_dollars": 500.0
+}

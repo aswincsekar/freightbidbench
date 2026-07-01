@@ -1,0 +1,233 @@
+\begin{thebibliography}{30}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Adelman and Mersereau(2008)]{adelman2008relaxations}
+Daniel Adelman and Adam~J. Mersereau.
+\newblock Relaxations of weakly coupled stochastic dynamic programs.
+\newblock \emph{Operations Research}, 56\penalty0 (3):\penalty0 712--727, 2008.
+\newblock \doi{10.1287/opre.1070.0445}.
+
+\bibitem[Bertsekas et~al.(1997)Bertsekas, Tsitsiklis, and
+  Wu]{bertsekas1997rollout}
+Dimitri~P. Bertsekas, John~N. Tsitsiklis, and Cynara Wu.
+\newblock Rollout algorithms for combinatorial optimization.
+\newblock \emph{Journal of Heuristics}, 3\penalty0 (3):\penalty0 245--262,
+  1997.
+\newblock \doi{10.1023/A:1009635226865}.
+
+\bibitem[Boddy and Dean(1989)]{boddydean1989}
+Mark Boddy and Thomas~L. Dean.
+\newblock Solving time-dependent planning problems.
+\newblock In \emph{Proceedings of the 11th International Joint Conference on
+  Artificial Intelligence (IJCAI)}, 1989.
+
+\bibitem[Brown et~al.(2010)Brown, Smith, and Sun]{brown2010information}
+David~B. Brown, James~E. Smith, and Peng Sun.
+\newblock Information relaxations and duality in stochastic dynamic programs.
+\newblock \emph{Operations Research}, 58\penalty0 (4):\penalty0 785--801, 2010.
+\newblock \doi{10.1287/opre.1090.0796}.
+
+\bibitem[Goodson et~al.(2017)Goodson, Thomas, and Ohlmann]{goodson2017rollout}
+Justin~C. Goodson, Barrett~W. Thomas, and Jeffrey~W. Ohlmann.
+\newblock A rollout algorithm framework for heuristic solutions to
+  finite-horizon stochastic dynamic programs.
+\newblock \emph{European Journal of Operational Research}, 258\penalty0
+  (1):\penalty0 216--229, 2017.
+\newblock \doi{10.1016/j.ejor.2016.09.040}.
+
+\bibitem[Heakl et~al.(2025)Heakl, Shaaban, Lahlou, Tak{\'a}{\v{c}}, and
+  Iklassov]{heakl2025svrpbench}
+Ahmed Heakl, Yahia~Salaheldin Shaaban, Salem Lahlou, Martin Tak{\'a}{\v{c}},
+  and Zangir Iklassov.
+\newblock {SVRPBench}: A realistic benchmark for stochastic vehicle routing
+  problem.
+\newblock In \emph{Advances in Neural Information Processing Systems Datasets
+  and Benchmarks Track}, 2025.
+\newblock OpenReview.
+
+\bibitem[Homberger and Gehring(2005)]{homberger2005vrptw}
+J{\"o}rg Homberger and Hermann Gehring.
+\newblock A two-phase hybrid metaheuristic for the vehicle routing problem with
+  time windows.
+\newblock \emph{European Journal of Operational Research}, 162\penalty0
+  (1):\penalty0 220--238, 2005.
+\newblock \doi{10.1016/j.ejor.2004.01.027}.
+
+\bibitem[Horvitz(1988)]{horvitz1988}
+Eric~J. Horvitz.
+\newblock Reasoning under varying and uncertain resource constraints.
+\newblock In \emph{Proceedings of the 7th National Conference on Artificial
+  Intelligence (AAAI)}, 1988.
+
+\bibitem[Kim et~al.(2004)Kim, Mahmassani, and Jaillet]{kim2004dynamic}
+Yongjin Kim, Hani~S. Mahmassani, and Patrick Jaillet.
+\newblock Dynamic truckload routing, scheduling, and load acceptance for large
+  fleet operation with priority demands.
+\newblock \emph{Transportation Research Record}, 1882\penalty0 (1):\penalty0
+  120--128, 2004.
+\newblock \doi{10.3141/1882-15}.
+
+\bibitem[Kool et~al.(2019)Kool, van Hoof, and Welling]{kool2019attention}
+Wouter Kool, Herke van Hoof, and Max Welling.
+\newblock Attention, learn to solve routing problems!
+\newblock In \emph{International Conference on Learning Representations}, 2019.
+
+\bibitem[Nazari et~al.(2018)Nazari, Oroojlooy, Snyder, and
+  Tak{\'a}{\v{c}}]{nazari2018rlvrp}
+Mohammadreza Nazari, Afshin Oroojlooy, Lawrence Snyder, and Martin
+  Tak{\'a}{\v{c}}.
+\newblock Reinforcement learning for solving the vehicle routing problem.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~31, 2018.
+
+\bibitem[Patel et~al.(2022)Patel, Dumouchelle, Khalil, and
+  Bodur]{patel2022neur2sp}
+Rahul~Mihir Patel, Justin Dumouchelle, Elias~B. Khalil, and Merve Bodur.
+\newblock Neur2sp: Neural two-stage stochastic programming.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~35, 2022.
+
+\bibitem[Pillac et~al.(2013)Pillac, Gendreau, Gu{\'e}ret, and
+  Medaglia]{pillac2013review}
+Victor Pillac, Michel Gendreau, Christelle Gu{\'e}ret, and Andr{\'e}s~L.
+  Medaglia.
+\newblock A review of dynamic vehicle routing problems.
+\newblock \emph{European Journal of Operational Research}, 225\penalty0
+  (1):\penalty0 1--11, 2013.
+\newblock \doi{10.1016/j.ejor.2012.08.015}.
+
+\bibitem[Powell et~al.(2012)Powell, Sim{\~a}o, and
+  Bouzaiene-Ayari]{powell2007stochastic}
+Warren~B. Powell, Hugo~P. Sim{\~a}o, and Belgacem Bouzaiene-Ayari.
+\newblock Approximate dynamic programming in transportation and logistics: A
+  unified framework.
+\newblock \emph{EURO Journal on Transportation and Logistics}, 1\penalty0
+  (3):\penalty0 237--284, 2012.
+\newblock \doi{10.1007/s13676-012-0015-8}.
+
+\bibitem[Powell et~al.(2014)Powell, Bouzaiene-Ayari, Lawrence, Cheng, Das, and
+  Fiorillo]{powell2014locomotive}
+Warren~B. Powell, Belgacem Bouzaiene-Ayari, Coleman Lawrence, Clark Cheng,
+  Shyam Das, and Ricardo Fiorillo.
+\newblock Locomotive planning at norfolk southern using approximate dynamic
+  programming.
+\newblock \emph{Interfaces}, 44\penalty0 (6):\penalty0 567--578, 2014.
+\newblock \doi{10.1287/inte.2014.0764}.
+
+\bibitem[Ritzinger et~al.(2016)Ritzinger, Puchinger, and
+  Hartl]{ritzinger2016survey}
+Ulrike~M. Ritzinger, Jakob Puchinger, and Richard~F. Hartl.
+\newblock A survey on dynamic and stochastic vehicle routing problems.
+\newblock \emph{International Journal of Production Research}, 54\penalty0
+  (1):\penalty0 215--231, 2016.
+\newblock \doi{10.1080/00207543.2015.1043403}.
+
+\bibitem[Russell and Wefald(1991)]{russellwefald1991}
+Stuart Russell and Eric Wefald.
+\newblock Principles of metareasoning.
+\newblock \emph{Artificial Intelligence}, 49\penalty0 (1--3):\penalty0
+  361--395, 1991.
+
+\bibitem[Secomandi and Margot(2009)]{secomandi2008reoptimization}
+Nicola Secomandi and Fran{\c{c}}ois Margot.
+\newblock Reoptimization approaches for the vehicle-routing problem with
+  stochastic demands.
+\newblock \emph{Operations Research}, 57\penalty0 (1):\penalty0 214--230, 2009.
+\newblock \doi{10.1287/opre.1080.0520}.
+
+\bibitem[Sim{\~a}o et~al.(2009)Sim{\~a}o, Day, George, Gifford, Nienow, and
+  Powell]{simao2009adp}
+Hugo~P. Sim{\~a}o, Joseph Day, Abraham~P. George, Ted Gifford, John Nienow, and
+  Warren~B. Powell.
+\newblock An approximate dynamic programming algorithm for large-scale fleet
+  management: A case application.
+\newblock \emph{Transportation Science}, 43\penalty0 (2):\penalty0 178--197,
+  2009.
+\newblock \doi{10.1287/trsc.1080.0238}.
+
+\bibitem[Solomon(1987)]{solomon1987vrptw}
+Marius~M. Solomon.
+\newblock Algorithms for the vehicle routing and scheduling problems with time
+  window constraints.
+\newblock \emph{Operations Research}, 35\penalty0 (2):\penalty0 254--265, 1987.
+\newblock \doi{10.1287/opre.35.2.254}.
+
+\bibitem[Tjokroamidjojo et~al.(2006)Tjokroamidjojo, Kutanoglu, and
+  Taylor]{tjokroamidjojo2006quickresponse}
+Daniel Tjokroamidjojo, Erhan Kutanoglu, and G.~Don Taylor.
+\newblock Quantifying the value of advance load information in truckload
+  trucking.
+\newblock \emph{Transportation Research Part E: Logistics and Transportation
+  Review}, 42\penalty0 (4):\penalty0 340--357, 2006.
+\newblock \doi{10.1016/j.tre.2005.04.001}.
+
+\bibitem[Topaloglu and Powell(2006)]{topaloglu2006dynamic}
+Huseyin Topaloglu and Warren~B. Powell.
+\newblock Dynamic-programming approximations for stochastic time-staged integer
+  multicommodity-flow problems.
+\newblock \emph{INFORMS Journal on Computing}, 18\penalty0 (1):\penalty0
+  31--42, 2006.
+\newblock \doi{10.1287/ijoc.1040.0079}.
+
+\bibitem[Uchoa et~al.(2017)Uchoa, Pecin, Pessoa, Poggi, Vidal, and
+  Subramanian]{uchoa2017cvrp}
+Eduardo Uchoa, Diego Pecin, Artur Pessoa, Marcus Poggi, Thibaut Vidal, and
+  Anand Subramanian.
+\newblock New benchmark instances for the capacitated vehicle routing problem.
+\newblock \emph{European Journal of Operational Research}, 257\penalty0
+  (3):\penalty0 845--858, 2017.
+\newblock \doi{10.1016/j.ejor.2016.08.012}.
+
+\bibitem[Ulmer and Thomas(2020)]{ulmer2020meso}
+Marlin~W. Ulmer and Barrett~W. Thomas.
+\newblock Meso-parametric value function approximation for dynamic customer
+  acceptances in delivery routing.
+\newblock \emph{European Journal of Operational Research}, 285\penalty0
+  (1):\penalty0 183--195, 2020.
+\newblock \doi{10.1016/j.ejor.2019.04.029}.
+
+\bibitem[Ulmer et~al.(2019)Ulmer, Goodson, Mattfeld, and
+  Hennig]{ulmer2019offline}
+Marlin~W. Ulmer, Justin~C. Goodson, Dirk~C. Mattfeld, and Marco Hennig.
+\newblock Offline--online approximate dynamic programming for dynamic vehicle
+  routing with stochastic requests.
+\newblock \emph{Transportation Science}, 53\penalty0 (1):\penalty0 185--202,
+  2019.
+\newblock \doi{10.1287/trsc.2017.0767}.
+
+\bibitem[{U.S. Department of Agriculture, Agricultural Marketing
+  Service}(2026)]{usdafvwtrk}
+{U.S. Department of Agriculture, Agricultural Marketing Service}.
+\newblock Specialty crops national truck rate report (fvwtrk), 2026.
+\newblock Market News report, report slug 2375.
+
+\bibitem[{U.S. Department of Transportation, Bureau of Transportation
+  Statistics and Federal Highway Administration}(2017)]{btsfaf5}
+{U.S. Department of Transportation, Bureau of Transportation Statistics and
+  Federal Highway Administration}.
+\newblock Freight analysis framework, faf5, 2017.
+\newblock Dataset.
+
+\bibitem[Viola and Jones(2001)]{violajones2001}
+Paul Viola and Michael Jones.
+\newblock Rapid object detection using a boosted cascade of simple features.
+\newblock In \emph{Proceedings of the 2001 IEEE Computer Society Conference on
+  Computer Vision and Pattern Recognition (CVPR)}, 2001.
+
+\bibitem[Yang et~al.(2004)Yang, Jaillet, and Mahmassani]{yang2004realtime}
+Jian Yang, Patrick Jaillet, and Hani Mahmassani.
+\newblock Real-time multivehicle truckload pickup and delivery problems.
+\newblock \emph{Transportation Science}, 38\penalty0 (2):\penalty0 135--148,
+  2004.
+\newblock \doi{10.1287/trsc.1030.0068}.
+
+\bibitem[Zilberstein(1996)]{zilberstein1996}
+Shlomo Zilberstein.
+\newblock Using anytime algorithms in intelligent systems.
+\newblock \emph{AI Magazine}, 17\penalty0 (3):\penalty0 73--83, 1996.
+
+\end{thebibliography}

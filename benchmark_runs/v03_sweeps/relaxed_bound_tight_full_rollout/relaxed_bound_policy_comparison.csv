@@ -1,0 +1,4 @@
+policy,profit,retention_vs_relaxed_bound,gap_to_relaxed_bound,accepted,no_truck,infeasible,mean_latency_ms
+accept_all_feasible,1114158.21,0.468626,1263341.90,441,0,0,0.050104
+bid_price,1108838.21,0.466388,1268661.90,441,19,513,0.000897
+rollout_teacher,1273395.14,0.535603,1104104.97,460,0,0,74.991585

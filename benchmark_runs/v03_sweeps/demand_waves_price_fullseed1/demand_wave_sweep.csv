@@ -1,0 +1,9 @@
+wave_mode,wave_amplitude,scenario,rollout_teacher_profit,best_simple_policy,best_simple_profit,best_simple_retention_vs_rollout,best_simple_gap_pp,gate_met
+price,0.000000,tight,1009858.58,accept_all_feasible,906912.13,0.898059,10.19,True
+price,0.000000,scarce,798771.58,accept_all_feasible,681489.66,0.853172,14.68,True
+price,0.250000,tight,1123014.42,accept_all_feasible,1010535.17,0.899842,10.02,True
+price,0.250000,scarce,881874.66,accept_all_feasible,744814.54,0.844581,15.54,True
+price,0.500000,tight,1273395.14,accept_all_feasible,1114158.21,0.874951,12.50,True
+price,0.500000,scarce,1065656.11,accept_all_feasible,808139.41,0.758349,24.17,True
+price,0.750000,tight,1391171.27,accept_all_feasible,1217781.25,0.875364,12.46,True
+price,0.750000,scarce,1186553.09,accept_all_feasible,871464.28,0.734450,26.55,True

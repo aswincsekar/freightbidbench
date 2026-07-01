@@ -1,0 +1,2 @@
+scenario,scenario_name,scenario_config_path,eval_seed,loads_seen,positive_load_terms,fleet_size,capacity_hours,positive_profit_bound,fractional_truck_hour_bound,terminal_upper_bound,selected_relaxed_bound,elapsed_seconds
+tight,freightbidbench_tight_capacity,configs/freightbidbench_v03_scenarios.json,20260507,995,951,70,7516.7525,2377500.11,2377500.11,48498.78,2377500.11,0.0194

@@ -1,0 +1,5 @@
+terminal_value_weight,scenario,accept_all_feasible_profit,myopic_margin_profit,bid_price_profit,rollout_teacher_profit,accept_all_feasible_retention_vs_rollout,accept_all_feasible_retention_gap_pp,accept_all_feasible_terminal_value,rollout_terminal_value,gate_met
+0.000000,tight,19470.47,19470.47,19470.47,17973.77,1.083271,-8.33,0.00,0.00,False
+0.000000,scarce,19334.26,19334.26,19334.26,14366.30,1.345807,-34.58,0.00,0.00,False
+0.500000,tight,79462.04,79462.04,79462.04,77965.34,1.019197,-1.92,59991.57,59991.57,False
+0.500000,scarce,71009.21,71009.21,71009.21,66041.25,1.075225,-7.52,51674.96,51674.96,False

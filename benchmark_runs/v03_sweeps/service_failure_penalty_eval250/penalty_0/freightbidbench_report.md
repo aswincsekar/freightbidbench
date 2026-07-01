@@ -1,0 +1,72 @@
+# FreightBidBench Report
+
+## Configuration
+
+- Benchmark version: `freightbidbench-v0.3-dev`
+- Scenario config: `benchmark_runs/v03_sweeps/service_failure_penalty_eval250/configs/freightbidbench_v03_penalty_0.json`
+- Preset: `smoke` (One seed pair on the tight scenario for CI and quick checks.)
+- Seed pairs: 20260506/20260507
+- Policies: `reject_all`, `accept_all_feasible`, `myopic_margin`, `bid_price`, `surrogate_linear`, `rollout_teacher`, `cascade_surrogate_rollout`
+- Cascade bands: +/- $0
+- Rollout labels per train/eval stream: up to 20
+- Evaluation load limit: 250
+- Feasibility layer: pickup reach time, pickup/delivery windows, HOS clocks, stochastic yard delays
+- Disabled feasibility features: none
+- Total runtime: 23.49 seconds
+
+| Key | Scenario | Horizon | Loads/Hour | Fleet | Cost/Mile | Value Scale |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `tight` | `freightbidbench_tight_capacity` | 72h | 14 | 70 | $3.10 | $3,000 |
+| `scarce` | `freightbidbench_scarce_capacity` | 72h | 16 | 55 | $3.20 | $3,400 |
+
+## Offline Label Fit
+
+| Scenario | Runs | Agreement | MAE | p90 Abs Error |
+| --- | ---: | ---: | ---: | ---: |
+| `freightbidbench_scarce_capacity` | 1 | 65.0% | $974 | $1,801 |
+| `freightbidbench_tight_capacity` | 1 | 100.0% | $551 | $1,353 |
+
+## Policy Results
+
+The table reports seed-averaged closed-loop profit. The cascade row uses the
+representative +/- $500 escalation band.
+
+| Scenario | Policy | Band | Mean Profit | Profit CI95 | Retention | Mean Latency ms | Rollout Share | Infeasible | Service Failure Cost | HOS Rest h | Yard Delay h |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `freightbidbench_scarce_capacity` | `reject_all` | - | $0 | +/- $0 | 0.0% | 0.000 | 0.0% | 0.0 | $0 | 0 | 0 |
+| `freightbidbench_scarce_capacity` | `accept_all_feasible` | - | $272,281 | +/- $0 | 116.1% | 0.023 | 0.0% | 0.0 | $0 | 430 | 184 |
+| `freightbidbench_scarce_capacity` | `myopic_margin` | - | $272,281 | +/- $0 | 116.1% | 0.000 | 0.0% | 108.0 | $0 | 430 | 184 |
+| `freightbidbench_scarce_capacity` | `bid_price` | - | $272,281 | +/- $0 | 116.1% | 0.001 | 0.0% | 104.0 | $0 | 430 | 184 |
+| `freightbidbench_scarce_capacity` | `surrogate_linear` | - | $280,900 | +/- $0 | 119.8% | 0.004 | 0.0% | 40.0 | $0 | 390 | 179 |
+| `freightbidbench_scarce_capacity` | `rollout_teacher` | - | $234,474 | +/- $0 | 100.0% | 22.184 | 100.0% | 0.0 | $0 | 90 | 106 |
+| `freightbidbench_tight_capacity` | `reject_all` | - | $0 | +/- $0 | 0.0% | 0.000 | 0.0% | 0.0 | $0 | 0 | 0 |
+| `freightbidbench_tight_capacity` | `accept_all_feasible` | - | $353,418 | +/- $0 | 116.5% | 0.034 | 0.0% | 0.0 | $0 | 560 | 250 |
+| `freightbidbench_tight_capacity` | `myopic_margin` | - | $353,418 | +/- $0 | 116.5% | 0.000 | 0.0% | 67.0 | $0 | 560 | 250 |
+| `freightbidbench_tight_capacity` | `bid_price` | - | $353,418 | +/- $0 | 116.5% | 0.001 | 0.0% | 65.0 | $0 | 560 | 250 |
+| `freightbidbench_tight_capacity` | `surrogate_linear` | - | $354,661 | +/- $0 | 117.0% | 0.004 | 0.0% | 63.0 | $0 | 550 | 248 |
+| `freightbidbench_tight_capacity` | `rollout_teacher` | - | $303,237 | +/- $0 | 100.0% | 38.426 | 100.0% | 0.0 | $0 | 220 | 179 |
+
+## Cascade Frontier
+
+| Scenario | Band +/- $ | Retention | Mean Profit | Mean Latency ms | Rollout Share |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `freightbidbench_scarce_capacity` | 0 | 95.3% | $223,537 | 5.307 | 49.6% |
+| `freightbidbench_tight_capacity` | 0 | 104.3% | $316,424 | 10.552 | 55.2% |
+
+## Output Files
+
+- `benchmark_runs/v03_sweeps/service_failure_penalty_eval250/penalty_0/freightbidbench_policy_runs.csv`
+- `benchmark_runs/v03_sweeps/service_failure_penalty_eval250/penalty_0/freightbidbench_static_label_fit.csv`
+- `benchmark_runs/v03_sweeps/service_failure_penalty_eval250/penalty_0/freightbidbench_policy_summary.csv`
+- `benchmark_runs/v03_sweeps/service_failure_penalty_eval250/penalty_0/freightbidbench_frontier_summary.csv`
+- `benchmark_runs/v03_sweeps/service_failure_penalty_eval250/penalty_0/freightbidbench_manifest.json`
+
+## Benchmark Notes
+
+FreightBidBench v0.2 is a public-calibrated synthetic benchmark. It is meant to
+test closed-loop bid-evaluation policies under controlled stochastic freight
+conditions, not to claim calibrated production-dollar performance.
+
+The finite rollout teacher is a stochastic benchmark, not an oracle. A policy
+can exceed 100% retention when it earns higher realized closed-loop profit than
+the finite-lookahead rollout teacher on the same seed average.

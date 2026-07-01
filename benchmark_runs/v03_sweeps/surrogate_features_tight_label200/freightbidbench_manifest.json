@@ -1,0 +1,115 @@
+{
+  "benchmark_version": "freightbidbench-v0.3-dev",
+  "scenario_config_version": "scenario-v0.3.2",
+  "policy_set_version": "policy-set-v0.2.1",
+  "scenario_config_path": "configs/freightbidbench_v03_scenarios.json",
+  "preset": "standard",
+  "preset_description": "Three seed pairs across mild, tight, and scarce regimes.",
+  "command": "scripts/run_freightbidbench.py --config configs/freightbidbench_v03_scenarios.json --preset standard --scenarios tight --seed-count 1 --label-limit 200 --cascade-bands 0,500 --output-dir benchmark_runs/v03_sweeps/surrogate_features_tight_label200",
+  "python": "3.14.4",
+  "elapsed_seconds": 79.43,
+  "source_inputs": {
+    "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
+    "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
+  },
+  "seed_pairs": [
+    {
+      "train_seed": 20260506,
+      "eval_seed": 20260507
+    }
+  ],
+  "policies": [
+    "reject_all",
+    "accept_all_feasible",
+    "myopic_margin",
+    "bid_price",
+    "surrogate_linear",
+    "rollout_teacher"
+  ],
+  "cascade_policy": "cascade_surrogate_rollout",
+  "evaluated_policies": [
+    "reject_all",
+    "accept_all_feasible",
+    "myopic_margin",
+    "bid_price",
+    "surrogate_linear",
+    "rollout_teacher",
+    "cascade_surrogate_rollout"
+  ],
+  "cascade_bands_dollars": [
+    0.0,
+    500.0
+  ],
+  "label_limit": 200,
+  "eval_load_limit": null,
+  "feasibility_layer": {
+    "individual_truck_state": true,
+    "version": "v0.2",
+    "enabled": true,
+    "features": {
+      "pickup_reach_time": true,
+      "pickup_delivery_windows": true,
+      "simplified_hos_11_14_10": true,
+      "stochastic_pickup_dropoff_yard_delays": true
+    },
+    "disabled_features": []
+  },
+  "scenarios": {
+    "tight": {
+      "scenario": "freightbidbench_tight_capacity",
+      "horizon_hours": 72,
+      "loads_per_hour": 14,
+      "fleet_size": 70,
+      "base_cost_per_mile": "3.10",
+      "fixed_load_cost": "250.00",
+      "value_scale_dollars": "3000.00",
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.25,
+      "demand_wave_schedule": {
+        "type": "price_premium_piecewise",
+        "period_hours": 24,
+        "default_multiplier": 1.0,
+        "default_price_multiplier": 1.0,
+        "segments": [
+          {
+            "start_hour": 0,
+            "end_hour": 8,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          },
+          {
+            "start_hour": 8,
+            "end_hour": 16,
+            "multiplier": 1.0,
+            "price_multiplier": 1.5
+          },
+          {
+            "start_hour": 16,
+            "end_hour": 24,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          }
+        ]
+      }
+    }
+  },
+  "outputs": {
+    "policy_runs": "benchmark_runs/v03_sweeps/surrogate_features_tight_label200/freightbidbench_policy_runs.csv",
+    "static_fit": "benchmark_runs/v03_sweeps/surrogate_features_tight_label200/freightbidbench_static_label_fit.csv",
+    "policy_summary": "benchmark_runs/v03_sweeps/surrogate_features_tight_label200/freightbidbench_policy_summary.csv",
+    "frontier_summary": "benchmark_runs/v03_sweeps/surrogate_features_tight_label200/freightbidbench_frontier_summary.csv",
+    "manifest": "benchmark_runs/v03_sweeps/surrogate_features_tight_label200/freightbidbench_manifest.json",
+    "report": "benchmark_runs/v03_sweeps/surrogate_features_tight_label200/freightbidbench_report.md"
+  },
+  "row_counts": {
+    "policy_runs": 8,
+    "static_fit": 1,
+    "policy_summary": 8,
+    "frontier_summary": 2
+  },
+  "notes": [
+    "Synthetic load arrivals are calibrated from public FAF/USDA-derived processed inputs.",
+    "Rollout teacher is finite-lookahead and stochastic; it is not an oracle.",
+    "Latency is measured inside this Python reference implementation."
+  ]
+}

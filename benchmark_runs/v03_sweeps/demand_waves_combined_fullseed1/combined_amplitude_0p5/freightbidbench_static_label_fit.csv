@@ -1,0 +1,3 @@
+scenario,horizon_hours,loads_per_hour,fleet_size,base_cost_per_mile,fixed_load_cost,value_scale_dollars,train_seed,eval_seed,train_label_count,eval_label_count,agreement,mae,p90_abs_error,cell_elapsed_seconds
+freightbidbench_tight_capacity,72,14,70,3.10,250.00,3000.00,20260506,20260507,20,20,1.000000,616.45,927.41,38.76
+freightbidbench_scarce_capacity,72,16,55,3.20,250.00,3400.00,20260506,20260507,20,20,0.650000,1250.32,1773.63,32.03

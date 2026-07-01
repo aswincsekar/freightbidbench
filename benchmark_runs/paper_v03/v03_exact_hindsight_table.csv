@@ -1,0 +1,2 @@
+scenario,loads_seen,hindsight_profit,states_evaluated,best_simple_policy,best_simple_retention_vs_hindsight,rollout_retention_vs_hindsight
+tight,12,53419.23,8191,accept_all_feasible,1.000000,0.900290

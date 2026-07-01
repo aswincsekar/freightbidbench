@@ -69,6 +69,9 @@ class Scenario:
     base_cost_per_mile: float
     fixed_load_cost: float
     value_scale_dollars: float
+    service_failure_penalty_dollars: float | None = None
+    terminal_value_weight: float | None = None
+    demand_wave_schedule: object | None = None
 
 
 POLICIES = [
@@ -125,6 +128,8 @@ def lane_distance_miles(lane: dict[str, str]) -> float:
 
 def weighted_choice(rng: random.Random, rows: list[dict[str, str]], weights: list[float]) -> dict[str, str]:
     total = sum(weights)
+    if total <= 0.0:
+        return rows[rng.randrange(len(rows))]
     target = rng.random() * total
     running = 0.0
     for row, weight in zip(rows, weights):
@@ -183,14 +188,25 @@ def generate_loads(lanes: list[dict[str, str]], scenario: Scenario) -> list[dict
     weights = [max(as_float(lane["faf_tons_2024"]), 1e-6) for lane in lanes]
     loads: list[dict[str, object]] = []
     load_id = 0
+    base_weights = weights
     for hour in range(scenario.horizon_hours):
-        count = max(0, int(round(rng.gauss(scenario.loads_per_hour, 3.0))))
+        expected_count = expected_loads_per_hour(scenario, float(hour))
+        count = max(0, int(round(rng.gauss(expected_count, 3.0))))
+        hour_weights = [
+            weight * lane_demand_wave_multiplier(scenario, lane, float(hour))
+            for lane, weight in zip(lanes, base_weights)
+        ]
         for _ in range(count):
-            lane = weighted_choice(rng, lanes, weights)
+            lane = weighted_choice(rng, lanes, hour_weights)
             distance = lane_distance_miles(lane)
             scarcity = as_float(lane["scarcity_multiplier"])
             price_noise = min(1.35, max(0.65, rng.gauss(1.0, 0.09)))
-            price = as_float(lane["rate_midpoint"]) * price_noise * (0.9 + 0.1 * scarcity)
+            price = (
+                as_float(lane["rate_midpoint"])
+                * price_noise
+                * (0.9 + 0.1 * scarcity)
+                * demand_wave_price_multiplier(scenario, lane, float(hour))
+            )
             direct_cost = distance * scenario.base_cost_per_mile + scenario.fixed_load_cost
             travel_hours = distance / TRUCK_SPEED_MPH + SERVICE_HOURS
             loads.append(
@@ -247,6 +263,113 @@ def policy_accepts(policy: Policy, load: dict[str, object], state_values: dict[s
     return score >= policy.threshold, score, future_delta
 
 
+def tracks_service_failure_penalty(scenario: Scenario) -> bool:
+    return scenario.service_failure_penalty_dollars is not None
+
+
+def service_failure_penalty_dollars(scenario: Scenario) -> float:
+    return float(scenario.service_failure_penalty_dollars or 0.0)
+
+
+def tracks_terminal_value(scenario: Scenario) -> bool:
+    return scenario.terminal_value_weight is not None
+
+
+def terminal_value_weight(scenario: Scenario) -> float:
+    return float(scenario.terminal_value_weight or 0.0)
+
+
+def terminal_fleet_value(
+    fleet: dict[str, list[object]],
+    scenario: Scenario,
+    state_values: dict[str, float],
+) -> float:
+    weight = terminal_value_weight(scenario)
+    if weight == 0.0:
+        return 0.0
+    return weight * sum(
+        len(trucks) * state_values.get(state, 0.0)
+        for state, trucks in fleet.items()
+    )
+
+
+def demand_wave_multiplier(scenario: Scenario, hour: float) -> float:
+    segment = demand_wave_segment(scenario, hour)
+    if segment is None:
+        return 1.0
+    return max(0.0, float(segment.get("multiplier", 1.0)))
+
+
+def demand_wave_segment(scenario: Scenario, hour: float) -> dict[str, object] | None:
+    schedule = scenario.demand_wave_schedule
+    if not isinstance(schedule, dict):
+        return None
+    period_hours = float(schedule.get("period_hours", 24.0) or 24.0)
+    if period_hours <= 0.0:
+        return None
+    phase = hour % period_hours
+    segments = schedule.get("segments", [])
+    if not isinstance(segments, list):
+        return None
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        start = float(segment.get("start_hour", 0.0))
+        end = float(segment.get("end_hour", start))
+        if start <= phase < end:
+            return segment
+    fallback = {"multiplier": float(schedule.get("default_multiplier", 1.0) or 1.0)}
+    if "default_price_multiplier" in schedule:
+        fallback["price_multiplier"] = float(
+            schedule.get("default_price_multiplier", 1.0) or 1.0
+        )
+    return fallback
+
+
+def lane_demand_wave_multiplier(
+    scenario: Scenario,
+    lane: dict[str, object],
+    hour: float,
+) -> float:
+    segment = demand_wave_segment(scenario, hour)
+    if segment is None:
+        return 1.0
+    multiplier = 1.0
+    origin_multipliers = segment.get("origin_state_multipliers", {})
+    if isinstance(origin_multipliers, dict):
+        multiplier *= float(origin_multipliers.get(str(lane.get("origin_state")), 1.0))
+    destination_multipliers = segment.get("destination_state_multipliers", {})
+    if isinstance(destination_multipliers, dict):
+        multiplier *= float(
+            destination_multipliers.get(str(lane.get("destination_state")), 1.0)
+        )
+    return max(0.0, multiplier)
+
+
+def demand_wave_price_multiplier(
+    scenario: Scenario,
+    lane: dict[str, object],
+    hour: float,
+) -> float:
+    segment = demand_wave_segment(scenario, hour)
+    if segment is None:
+        return 1.0
+    multiplier = float(segment.get("price_multiplier", 1.0))
+    origin_multipliers = segment.get("origin_price_multipliers", {})
+    if isinstance(origin_multipliers, dict):
+        multiplier *= float(origin_multipliers.get(str(lane.get("origin_state")), 1.0))
+    destination_multipliers = segment.get("destination_price_multipliers", {})
+    if isinstance(destination_multipliers, dict):
+        multiplier *= float(
+            destination_multipliers.get(str(lane.get("destination_state")), 1.0)
+        )
+    return max(0.0, multiplier)
+
+
+def expected_loads_per_hour(scenario: Scenario, hour: float) -> float:
+    return scenario.loads_per_hour * demand_wave_multiplier(scenario, hour)
+
+
 def simulate_policy(
     policy: Policy,
     scenario: Scenario,
@@ -259,6 +382,7 @@ def simulate_policy(
     rejected = 0
     no_truck = 0
     profit = 0.0
+    service_failure_penalty_cost = 0.0
     revenue = 0.0
     direct_cost = 0.0
     loaded_miles = 0.0
@@ -290,6 +414,9 @@ def simulate_policy(
                 outcome = "accept"
             else:
                 no_truck += 1
+                penalty = service_failure_penalty_dollars(scenario)
+                profit -= penalty
+                service_failure_penalty_cost += penalty
                 outcome = "no_truck"
         else:
             rejected += 1
@@ -315,9 +442,20 @@ def simulate_policy(
                     "wants_accept": wants_accept,
                     "outcome": outcome,
                 }
+                | (
+                    {
+                        "service_failure_penalty_dollars": f"{service_failure_penalty_dollars(scenario):.2f}"
+                        if outcome == "no_truck"
+                        else "0.00"
+                    }
+                    if tracks_service_failure_penalty(scenario)
+                    else {}
+                )
             )
 
     final_trucks = Counter({state: len(times) for state, times in fleet.items()})
+    terminal_value = terminal_fleet_value(fleet, scenario, state_values)
+    profit += terminal_value
     active_origin_states = {
         str(load["origin_state"]) for load in loads
     }
@@ -352,6 +490,10 @@ def simulate_policy(
             f"{state}:{count}" for state, count in final_trucks.most_common(6)
         ),
     }
+    if tracks_service_failure_penalty(scenario):
+        summary["service_failure_penalty_cost"] = f"{service_failure_penalty_cost:.2f}"
+    if tracks_terminal_value(scenario):
+        summary["terminal_fleet_value"] = f"{terminal_value:.2f}"
     return summary, decision_rows
 
 

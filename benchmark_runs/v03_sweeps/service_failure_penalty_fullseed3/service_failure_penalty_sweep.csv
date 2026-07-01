@@ -1,0 +1,3 @@
+penalty_dollars,scenario,accept_all_feasible_profit,myopic_margin_profit,bid_price_profit,rollout_teacher_profit,myopic_gap_vs_accept_all_feasible,bid_price_gap_vs_accept_all_feasible,myopic_service_failure_penalty_cost,bid_price_service_failure_penalty_cost,ordering_met
+10.00,tight,864382.70,861274.13,861390.80,937809.81,-3108.57,-2991.90,5620.00,5503.33,True
+10.00,scarce,714149.61,710405.24,710495.24,756367.84,-3744.37,-3654.37,7680.00,7590.00,True

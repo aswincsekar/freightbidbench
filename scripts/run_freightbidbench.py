@@ -26,14 +26,15 @@ import freight_feasibility as feas  # noqa: E402
 import run_surrogate_cascade as sc  # noqa: E402
 
 
-CONFIG_PATH = ROOT / "configs" / "freightbidbench_v02_scenarios.json"
-BENCHMARK_CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-BENCHMARK_VERSION = str(BENCHMARK_CONFIG["benchmark_version"])
-SCENARIO_CONFIG_VERSION = str(BENCHMARK_CONFIG["scenario_config_version"])
-POLICY_SET_VERSION = str(BENCHMARK_CONFIG["policy_set_version"])
+DEFAULT_CONFIG_PATH = ROOT / "configs" / "freightbidbench_v02_scenarios.json"
+CONFIG_PATH = DEFAULT_CONFIG_PATH
+BENCHMARK_CONFIG: dict[str, object] = {}
+BENCHMARK_VERSION = ""
+SCENARIO_CONFIG_VERSION = ""
+POLICY_SET_VERSION = ""
 DEFAULT_OUTPUT_DIR = ROOT / "benchmark_runs" / "current"
-DEFAULT_FIRST_SEED = int(BENCHMARK_CONFIG["default_first_seed"])
-CASCADE_POLICY = str(BENCHMARK_CONFIG["policies"]["cascade"])
+DEFAULT_FIRST_SEED = 0
+CASCADE_POLICY = ""
 
 
 def scenario_from_config(config: dict[str, object]) -> base.Scenario:
@@ -45,23 +46,78 @@ def scenario_from_config(config: dict[str, object]) -> base.Scenario:
         base_cost_per_mile=float(config["base_cost_per_mile"]),
         fixed_load_cost=float(config["fixed_load_cost"]),
         value_scale_dollars=float(config["value_scale_dollars"]),
+        service_failure_penalty_dollars=config.get("service_failure_penalty_dollars"),
+        terminal_value_weight=config.get("terminal_value_weight"),
+        demand_wave_schedule=config.get("demand_wave_schedule"),
     )
 
 
-SCENARIOS = {
-    name: scenario_from_config(config)
-    for name, config in BENCHMARK_CONFIG["scenarios"].items()
-}
-PRESETS = BENCHMARK_CONFIG["presets"]
-POLICIES = list(BENCHMARK_CONFIG["policies"]["default"])
-EVALUATED_POLICIES = POLICIES + [CASCADE_POLICY]
+SCENARIO_CONFIGS: dict[str, dict[str, object]] = {}
+SCENARIOS: dict[str, base.Scenario] = {}
+PRESETS: dict[str, dict[str, object]] = {}
+POLICIES: list[str] = []
+EVALUATED_POLICIES: list[str] = []
+DEFAULT_CASCADE_BANDS: list[float] = []
+REPRESENTATIVE_CASCADE_BAND = 0.0
 
-DEFAULT_CASCADE_BANDS = [
-    float(band) for band in BENCHMARK_CONFIG["cascade_bands_dollars"]
-]
-REPRESENTATIVE_CASCADE_BAND = float(
-    BENCHMARK_CONFIG["representative_cascade_band_dollars"]
-)
+
+def load_benchmark_config(config_path: Path) -> dict[str, object]:
+    path = config_path if config_path.is_absolute() else ROOT / config_path
+    with path.open(encoding="utf-8") as file:
+        return json.load(file)
+
+
+def apply_benchmark_config(config_path: Path) -> None:
+    global CONFIG_PATH
+    global BENCHMARK_CONFIG
+    global BENCHMARK_VERSION
+    global SCENARIO_CONFIG_VERSION
+    global POLICY_SET_VERSION
+    global DEFAULT_FIRST_SEED
+    global CASCADE_POLICY
+    global SCENARIO_CONFIGS
+    global SCENARIOS
+    global PRESETS
+    global POLICIES
+    global EVALUATED_POLICIES
+    global DEFAULT_CASCADE_BANDS
+    global REPRESENTATIVE_CASCADE_BAND
+
+    path = config_path if config_path.is_absolute() else ROOT / config_path
+    config = load_benchmark_config(path)
+    scenario_configs = {
+        str(name): dict(scenario_config)
+        for name, scenario_config in dict(config["scenarios"]).items()
+    }
+    policies_config = dict(config["policies"])
+
+    CONFIG_PATH = path
+    BENCHMARK_CONFIG = config
+    BENCHMARK_VERSION = str(config["benchmark_version"])
+    SCENARIO_CONFIG_VERSION = str(config["scenario_config_version"])
+    POLICY_SET_VERSION = str(config["policy_set_version"])
+    DEFAULT_FIRST_SEED = int(config["default_first_seed"])
+    CASCADE_POLICY = str(policies_config["cascade"])
+    SCENARIO_CONFIGS = scenario_configs
+    SCENARIOS = {
+        name: scenario_from_config(scenario_config)
+        for name, scenario_config in scenario_configs.items()
+    }
+    PRESETS = {
+        str(name): dict(preset_config)
+        for name, preset_config in dict(config["presets"]).items()
+    }
+    POLICIES = [str(policy) for policy in policies_config["default"]]
+    EVALUATED_POLICIES = POLICIES + [CASCADE_POLICY]
+    DEFAULT_CASCADE_BANDS = [
+        float(band) for band in config["cascade_bands_dollars"]
+    ]
+    REPRESENTATIVE_CASCADE_BAND = float(
+        config["representative_cascade_band_dollars"]
+    )
+
+
+apply_benchmark_config(DEFAULT_CONFIG_PATH)
 
 
 def relative(path: Path) -> str:
@@ -224,6 +280,19 @@ def representative_rows(
     return sorted(rows, key=exp.aggregate_sort_key)
 
 
+def scenario_manifest_row(name: str, scenario: base.Scenario) -> dict[str, object]:
+    row = exp.scenario_config_row(scenario)
+    raw_config = SCENARIO_CONFIGS.get(name, {})
+    for key in [
+        "service_failure_penalty_dollars",
+        "terminal_value_weight",
+        "demand_wave_schedule",
+    ]:
+        if key in raw_config:
+            row[key] = raw_config[key]
+    return row
+
+
 def write_report(
     paths: dict[str, Path],
     scenario_names: list[str],
@@ -273,22 +342,41 @@ def write_report(
             f"{exp.money(row['mean_p90_abs_error'])} |"
         )
 
-    policy_lines = [
-        "| Scenario | Policy | Band | Mean Profit | Profit CI95 | Retention | Mean Latency ms | Rollout Share | Infeasible | HOS Rest h | Yard Delay h |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
+    show_service_failure_cost = any(
+        "mean_service_failure_penalty_cost" in row for row in policy_summary_rows
+    )
+    show_terminal_value = any(
+        "mean_terminal_fleet_value" in row for row in policy_summary_rows
+    )
+    if show_service_failure_cost or show_terminal_value:
+        policy_lines = [
+            "| Scenario | Policy | Band | Mean Profit | Profit CI95 | Retention | Mean Latency ms | Rollout Share | Infeasible | Service Failure Cost | Terminal Value | HOS Rest h | Yard Delay h |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    else:
+        policy_lines = [
+            "| Scenario | Policy | Band | Mean Profit | Profit CI95 | Retention | Mean Latency ms | Rollout Share | Infeasible | HOS Rest h | Yard Delay h |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
     for row in representative_rows(policy_summary_rows, REPRESENTATIVE_CASCADE_BAND):
         band = row["cascade_band_dollars"] or "-"
-        policy_lines.append(
+        policy_line = (
             f"| `{row['scenario']}` | `{row['policy']}` | {band} | "
             f"{exp.money(row['mean_profit'])} | +/- {exp.money(row['ci95_profit_halfwidth'])} | "
             f"{exp.percent(row['mean_profit_retention_vs_rollout'])} | "
             f"{exp.as_float(row['mean_latency_ms']):.3f} | "
             f"{exp.percent(row['mean_rollout_stage_share'])} | "
             f"{exp.as_float(row.get('mean_infeasible', 0)):.1f} | "
+        )
+        if show_service_failure_cost:
+            policy_line += f"{exp.money(row.get('mean_service_failure_penalty_cost', 0))} | "
+        if show_terminal_value:
+            policy_line += f"{exp.money(row.get('mean_terminal_fleet_value', 0))} | "
+        policy_line += (
             f"{exp.as_float(row.get('mean_hos_rest_hours', 0)):,.0f} | "
             f"{exp.as_float(row.get('mean_yard_delay_hours', 0)):,.0f} |"
         )
+        policy_lines.append(policy_line)
 
     frontier_lines = [
         "| Scenario | Band +/- $ | Retention | Mean Profit | Mean Latency ms | Rollout Share |",
@@ -306,11 +394,12 @@ def write_report(
         f"- `{relative(path)}`" for key, path in paths.items() if key != "report"
     )
 
-    content = f"""# FreightBidBench v0.2 Report
+    content = f"""# FreightBidBench Report
 
 ## Configuration
 
 - Benchmark version: `{BENCHMARK_VERSION}`
+- Scenario config: `{relative(CONFIG_PATH)}`
 - Preset: `{preset}` ({PRESETS[preset]['description']})
 - Seed pairs: {seed_text}
 - Policies: {", ".join(f"`{policy}`" for policy in EVALUATED_POLICIES)}
@@ -396,7 +485,7 @@ def write_manifest(
             **feas.config_to_dict(),
         },
         "scenarios": {
-            name: exp.scenario_config_row(scenario)
+            name: scenario_manifest_row(name, scenario)
             for name, scenario in zip(scenario_names, scenarios)
         },
         "outputs": {key: relative(path) for key, path in paths.items()},
@@ -412,18 +501,22 @@ def write_manifest(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run FreightBidBench v0.2, a public-calibrated truckload bid benchmark."
+        description="Run FreightBidBench, a public-calibrated truckload bid benchmark."
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG_PATH,
+        help="Benchmark scenario config JSON. Defaults to the v0.2 release contract.",
     )
     parser.add_argument(
         "--preset",
-        choices=sorted(PRESETS),
         default="standard",
         help="Benchmark preset. Use paper for a stronger multi-seed run.",
     )
     parser.add_argument(
         "--scenarios",
-        type=parse_csv_names,
-        help="Comma-separated scenario subset: mild,tight,scarce. Overrides the preset scenario list.",
+        help="Comma-separated scenario subset. Overrides the preset scenario list.",
     )
     parser.add_argument(
         "--seed-count",
@@ -433,7 +526,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--first-seed",
         type=int,
-        default=DEFAULT_FIRST_SEED,
         help="First train seed; eval seeds are generated as train_seed + 1.",
     )
     parser.add_argument(
@@ -482,6 +574,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    apply_benchmark_config(args.config)
+    if args.preset not in PRESETS:
+        raise SystemExit(
+            f"--preset must be one of: {', '.join(sorted(PRESETS))}"
+        )
     feas.set_config(
         feas.config_from_disabled(
             disable_pickup_reach=args.disable_pickup_reach,
@@ -512,9 +609,14 @@ def main(argv: list[str] | None = None) -> None:
     if eval_load_limit is not None and eval_load_limit <= 0:
         raise SystemExit("--eval-load-limit must be positive")
 
-    scenario_names = args.scenarios or list(PRESETS[args.preset]["scenarios"])
+    first_seed = args.first_seed if args.first_seed is not None else DEFAULT_FIRST_SEED
+    scenario_names = (
+        parse_csv_names(args.scenarios)
+        if args.scenarios
+        else list(PRESETS[args.preset]["scenarios"])
+    )
     scenarios = [SCENARIOS[name] for name in scenario_names]
-    seed_pairs = seed_pairs_from_count(seed_count, args.first_seed)
+    seed_pairs = seed_pairs_from_count(seed_count, first_seed)
     cascade_bands = args.cascade_bands or list(DEFAULT_CASCADE_BANDS)
     paths = output_paths(args.output_dir)
     args.output_dir.mkdir(parents=True, exist_ok=True)

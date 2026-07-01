@@ -12,6 +12,10 @@ venv/
 .idea/
 .vscode/
 
+# Local session and agent state (not for the public repo)
+session.txt
+.claude/
+
 # Raw public downloads are reproducibility inputs, not source artifacts.
 data/raw/*
 !data/raw/README.md

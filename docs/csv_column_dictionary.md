@@ -39,6 +39,8 @@ One row per scenario, seed pair, and policy.
 | `delivery_window_miss` | Accept attempts failing delivery latest-time feasibility. |
 | `accept_rate` | Accepted loads divided by loads seen. |
 | `profit` | Closed-loop realized profit after direct, deadhead, and yard-delay costs. |
+| `service_failure_penalty_cost` | v0.3 optional: cancellation/service-failure cost charged for failed accept attempts. |
+| `terminal_fleet_value` | v0.3 optional: end-of-horizon fleet-position value added to realized profit. |
 | `profit_retention_vs_rollout` | Profit divided by same-scenario finite rollout-teacher profit. |
 | `revenue` | Revenue from accepted loads. |
 | `direct_cost` | Direct linehaul and fixed load costs. |
@@ -77,6 +79,8 @@ Aggregate rows grouped by scenario, policy, and cascade band.
 | --- | --- |
 | `n_runs` | Number of seed-pair runs in the aggregate. |
 | `mean_profit` | Mean closed-loop profit across runs. |
+| `mean_service_failure_penalty_cost` | v0.3 optional: mean service-failure penalty cost across runs. |
+| `mean_terminal_fleet_value` | v0.3 optional: mean terminal fleet-position value across runs. |
 | `std_profit` | Sample standard deviation of profit across runs. |
 | `ci95_profit_halfwidth` | Normal-approximation 95% confidence-interval half-width. |
 | `mean_profit_retention_vs_rollout` | Mean profit retention relative to rollout teacher. |

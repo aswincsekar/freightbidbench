@@ -1,0 +1,6 @@
+policy,profit,retention_vs_hindsight,gap_to_hindsight,accepted,rejected,no_truck,infeasible,mean_latency_ms
+reject_all,29995.78,0.561517,23423.45,0,12,0,0,0.000205
+accept_all_feasible,53419.23,1.000000,-0.00,12,0,0,0,0.066608
+myopic_margin,53419.23,1.000000,-0.00,12,0,0,0,0.000240
+bid_price,53419.23,1.000000,-0.00,12,0,0,0,0.001049
+rollout_teacher,48092.82,0.900290,5326.41,9,3,0,0,68.583854

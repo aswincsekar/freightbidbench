@@ -183,6 +183,10 @@ def decorate_policy_row(
         "final_top_states": summary["final_top_states"],
         "cell_elapsed_seconds": f"{elapsed_seconds:.2f}",
     }
+    if "service_failure_penalty_cost" in summary:
+        row["service_failure_penalty_cost"] = summary["service_failure_penalty_cost"]
+    if "terminal_fleet_value" in summary:
+        row["terminal_fleet_value"] = summary["terminal_fleet_value"]
     return row
 
 
@@ -319,36 +323,43 @@ def aggregate_policy_rows(rows: list[dict[str, object]]) -> list[dict[str, objec
         p95_latencies = [as_float(row["p95_latency_ms"]) for row in group]
         rollout_shares = [as_float(row["rollout_stage_share"]) for row in group]
         surrogate_shares = [as_float(row["surrogate_stage_share"]) for row in group]
-        aggregate_rows.append(
-            {
-                "scenario": scenario,
-                "policy": policy,
-                "cascade_band_dollars": band,
-                "n_runs": len(group),
-                "mean_profit": f"{mean(profits):.2f}",
-                "std_profit": f"{std(profits):.2f}",
-                "ci95_profit_halfwidth": f"{ci95_halfwidth(profits):.2f}",
-                "mean_profit_retention_vs_rollout": f"{mean(retentions):.6f}",
-                "min_profit_retention_vs_rollout": f"{min(retentions):.6f}",
-                "max_profit_retention_vs_rollout": f"{max(retentions):.6f}",
-                "mean_latency_ms": f"{mean(latencies):.6f}",
-                "mean_p95_latency_ms": f"{mean(p95_latencies):.6f}",
-                "mean_rollout_stage_share": f"{mean(rollout_shares):.6f}",
-                "mean_surrogate_stage_share": f"{mean(surrogate_shares):.6f}",
-                "mean_accepted": f"{mean([as_float(row['accepted']) for row in group]):.2f}",
-                "mean_no_truck": f"{mean([as_float(row['no_truck']) for row in group]):.2f}",
-                "mean_infeasible": f"{mean([as_float(row.get('infeasible', 0)) for row in group]):.2f}",
-                "mean_pickup_window_miss": f"{mean([as_float(row.get('pickup_window_miss', 0)) for row in group]):.2f}",
-                "mean_delivery_window_miss": f"{mean([as_float(row.get('delivery_window_miss', 0)) for row in group]):.2f}",
-                "mean_accept_rate": f"{mean([as_float(row['accept_rate']) for row in group]):.6f}",
-                "mean_deadhead_miles": f"{mean([as_float(row.get('deadhead_miles', 0)) for row in group]):.2f}",
-                "mean_yard_delay_hours": f"{mean([as_float(row.get('yard_delay_hours', 0)) for row in group]):.2f}",
-                "mean_hos_rest_hours": f"{mean([as_float(row.get('hos_rest_hours', 0)) for row in group]):.2f}",
-                "mean_static_agreement": f"{mean([as_float(row['static_agreement']) for row in group]):.6f}",
-                "mean_static_mae": f"{mean([as_float(row['static_mae']) for row in group]):.2f}",
-                "mean_static_p90_abs_error": f"{mean([as_float(row['static_p90_abs_error']) for row in group]):.2f}",
-            }
-        )
+        aggregate_row = {
+            "scenario": scenario,
+            "policy": policy,
+            "cascade_band_dollars": band,
+            "n_runs": len(group),
+            "mean_profit": f"{mean(profits):.2f}",
+            "std_profit": f"{std(profits):.2f}",
+            "ci95_profit_halfwidth": f"{ci95_halfwidth(profits):.2f}",
+            "mean_profit_retention_vs_rollout": f"{mean(retentions):.6f}",
+            "min_profit_retention_vs_rollout": f"{min(retentions):.6f}",
+            "max_profit_retention_vs_rollout": f"{max(retentions):.6f}",
+            "mean_latency_ms": f"{mean(latencies):.6f}",
+            "mean_p95_latency_ms": f"{mean(p95_latencies):.6f}",
+            "mean_rollout_stage_share": f"{mean(rollout_shares):.6f}",
+            "mean_surrogate_stage_share": f"{mean(surrogate_shares):.6f}",
+            "mean_accepted": f"{mean([as_float(row['accepted']) for row in group]):.2f}",
+            "mean_no_truck": f"{mean([as_float(row['no_truck']) for row in group]):.2f}",
+            "mean_infeasible": f"{mean([as_float(row.get('infeasible', 0)) for row in group]):.2f}",
+            "mean_pickup_window_miss": f"{mean([as_float(row.get('pickup_window_miss', 0)) for row in group]):.2f}",
+            "mean_delivery_window_miss": f"{mean([as_float(row.get('delivery_window_miss', 0)) for row in group]):.2f}",
+            "mean_accept_rate": f"{mean([as_float(row['accept_rate']) for row in group]):.6f}",
+            "mean_deadhead_miles": f"{mean([as_float(row.get('deadhead_miles', 0)) for row in group]):.2f}",
+            "mean_yard_delay_hours": f"{mean([as_float(row.get('yard_delay_hours', 0)) for row in group]):.2f}",
+            "mean_hos_rest_hours": f"{mean([as_float(row.get('hos_rest_hours', 0)) for row in group]):.2f}",
+            "mean_static_agreement": f"{mean([as_float(row['static_agreement']) for row in group]):.6f}",
+            "mean_static_mae": f"{mean([as_float(row['static_mae']) for row in group]):.2f}",
+            "mean_static_p90_abs_error": f"{mean([as_float(row['static_p90_abs_error']) for row in group]):.2f}",
+        }
+        if any("service_failure_penalty_cost" in row for row in group):
+            aggregate_row["mean_service_failure_penalty_cost"] = (
+                f"{mean([as_float(row.get('service_failure_penalty_cost', 0)) for row in group]):.2f}"
+            )
+        if any("terminal_fleet_value" in row for row in group):
+            aggregate_row["mean_terminal_fleet_value"] = (
+                f"{mean([as_float(row.get('terminal_fleet_value', 0)) for row in group]):.2f}"
+            )
+        aggregate_rows.append(aggregate_row)
 
     return sorted(aggregate_rows, key=aggregate_sort_key)
 

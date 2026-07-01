@@ -1,0 +1,5 @@
+policy,profit,retention_vs_relaxed_bound,gap_to_relaxed_bound,accepted,no_truck,infeasible,mean_latency_ms
+reject_all,25837.48,0.009657,2649687.81,0,0,0,0.000146
+accept_all_feasible,808139.41,0.302049,1867385.88,334,0,0,0.029019
+myopic_margin,800139.41,0.299059,1875385.88,334,4,796,0.000207
+bid_price,800259.41,0.299104,1875265.88,334,4,784,0.000738

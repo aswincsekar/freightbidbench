@@ -1,0 +1,2 @@
+scenario,scenario_name,scenario_config_path,eval_seed,loads_seen,fleet_size,hindsight_profit,accepted,rejected,states_evaluated,elapsed_seconds
+tight,freightbidbench_tight_capacity,configs/freightbidbench_v03_scenarios.json,20260507,12,70,53419.23,12,0,8191,0.4242

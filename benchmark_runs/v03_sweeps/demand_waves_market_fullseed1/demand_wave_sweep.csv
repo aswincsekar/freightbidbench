@@ -1,0 +1,9 @@
+wave_mode,wave_amplitude,scenario,rollout_teacher_profit,best_simple_policy,best_simple_profit,best_simple_retention_vs_rollout,best_simple_gap_pp,gate_met
+market,0.000000,tight,1009858.58,accept_all_feasible,906912.13,0.898059,10.19,True
+market,0.000000,scarce,798771.58,accept_all_feasible,681489.66,0.853172,14.68,True
+market,0.250000,tight,1011018.19,bid_price,940030.33,0.929786,7.02,False
+market,0.250000,scarce,804804.03,accept_all_feasible,752959.23,0.935581,6.44,False
+market,0.500000,tight,1003738.03,myopic_margin,911558.23,0.908163,9.18,False
+market,0.500000,scarce,786677.44,myopic_margin,708315.64,0.900389,9.96,False
+market,0.750000,tight,978838.21,bid_price,816605.49,0.834260,16.57,True
+market,0.750000,scarce,806065.52,accept_all_feasible,744568.61,0.923707,7.63,False

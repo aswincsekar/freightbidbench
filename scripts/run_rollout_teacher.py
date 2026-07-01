@@ -75,18 +75,31 @@ def generate_future_loads(
     start_hour: float,
     rng: random.Random,
 ) -> list[dict[str, object]]:
-    weights = [max(base.as_float(lane["faf_tons_2024"]), 1e-6) for lane in lanes]
+    base_weights = [max(base.as_float(lane["faf_tons_2024"]), 1e-6) for lane in lanes]
     loads: list[dict[str, object]] = []
     load_id = 0
     for offset in range(1, LOOKAHEAD_HOURS + 1):
         hour = start_hour + offset
-        count = max(0, int(round(rng.gauss(FUTURE_LOADS_PER_HOUR, 2.0))))
+        base_expected = base.expected_loads_per_hour(scenario, hour)
+        expected_count = FUTURE_LOADS_PER_HOUR * (
+            base_expected / max(float(scenario.loads_per_hour), 1.0)
+        )
+        count = max(0, int(round(rng.gauss(expected_count, 2.0))))
+        hour_weights = [
+            weight * base.lane_demand_wave_multiplier(scenario, lane, hour)
+            for lane, weight in zip(lanes, base_weights)
+        ]
         for _ in range(count):
-            lane = base.weighted_choice(rng, lanes, weights)
+            lane = base.weighted_choice(rng, lanes, hour_weights)
             distance = base.lane_distance_miles(lane)
             scarcity = base.as_float(lane["scarcity_multiplier"])
             price_noise = min(1.35, max(0.65, rng.gauss(1.0, 0.09)))
-            price = base.as_float(lane["rate_midpoint"]) * price_noise * (0.9 + 0.1 * scarcity)
+            price = (
+                base.as_float(lane["rate_midpoint"])
+                * price_noise
+                * (0.9 + 0.1 * scarcity)
+                * base.demand_wave_price_multiplier(scenario, lane, hour)
+            )
             direct_cost = distance * scenario.base_cost_per_mile + scenario.fixed_load_cost
             travel_hours = distance / base.TRUCK_SPEED_MPH + base.SERVICE_HOURS
             loads.append(
@@ -129,6 +142,7 @@ def apply_accept(
 def simulate_future_profit(
     fleet: dict[str, list[object]],
     future_loads: list[dict[str, object]],
+    scenario: base.Scenario,
     state_values: dict[str, float],
 ) -> float:
     profit = 0.0
@@ -139,6 +153,9 @@ def simulate_future_profit(
         accepted_profit = apply_accept(fleet, load, float(load["hour"]))
         if accepted_profit is not None:
             profit += accepted_profit
+        else:
+            profit -= base.service_failure_penalty_dollars(scenario)
+    profit += base.terminal_fleet_value(fleet, scenario, state_values)
     return profit
 
 
@@ -163,7 +180,7 @@ def rollout_accepts(
 
         reject_fleet = copy_fleet(fleet)
         reject_values.append(
-            simulate_future_profit(reject_fleet, future_loads, state_values)
+            simulate_future_profit(reject_fleet, future_loads, scenario, state_values)
         )
 
         accept_fleet = copy_fleet(fleet)
@@ -173,7 +190,7 @@ def rollout_accepts(
         else:
             accept_values.append(
                 accepted_profit
-                + simulate_future_profit(accept_fleet, future_loads, state_values)
+                + simulate_future_profit(accept_fleet, future_loads, scenario, state_values)
             )
 
     accept_value = statistics.mean(accept_values)
@@ -220,6 +237,7 @@ def simulate_policy(
     rejected = 0
     no_truck = 0
     profit = 0.0
+    service_failure_penalty_cost = 0.0
     revenue = 0.0
     direct_cost = 0.0
     loaded_miles = 0.0
@@ -239,6 +257,9 @@ def simulate_policy(
             accepted_profit = apply_accept(fleet, load, hour)
             if accepted_profit is None:
                 no_truck += 1
+                penalty = base.service_failure_penalty_dollars(scenario)
+                profit -= penalty
+                service_failure_penalty_cost += penalty
                 outcome = "no_truck"
             else:
                 accepted += 1
@@ -270,9 +291,20 @@ def simulate_policy(
                     "outcome": outcome,
                     "latency_ms": f"{latency_ms[-1]:.6f}",
                 }
+                | (
+                    {
+                        "service_failure_penalty_dollars": f"{base.service_failure_penalty_dollars(scenario):.2f}"
+                        if wants_accept and outcome == "no_truck"
+                        else "0.00"
+                    }
+                    if base.tracks_service_failure_penalty(scenario)
+                    else {}
+                )
             )
 
     final_trucks = Counter({state: len(times) for state, times in fleet.items()})
+    terminal_value = base.terminal_fleet_value(fleet, scenario, state_values)
+    profit += terminal_value
     summary = {
         "policy": policy_name,
         "loads_seen": len(loads),
@@ -293,6 +325,10 @@ def simulate_policy(
             f"{state}:{count}" for state, count in final_trucks.most_common(6)
         ),
     }
+    if base.tracks_service_failure_penalty(scenario):
+        summary["service_failure_penalty_cost"] = f"{service_failure_penalty_cost:.2f}"
+    if base.tracks_terminal_value(scenario):
+        summary["terminal_fleet_value"] = f"{terminal_value:.2f}"
     return summary, sampled_decisions
 
 

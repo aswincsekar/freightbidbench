@@ -102,17 +102,27 @@ def generate_loads_with_seed(
     seed: int,
 ) -> list[dict[str, object]]:
     rng = random.Random(seed)
-    weights = [max(base.as_float(lane["faf_tons_2024"]), 1e-6) for lane in lanes]
+    base_weights = [max(base.as_float(lane["faf_tons_2024"]), 1e-6) for lane in lanes]
     loads: list[dict[str, object]] = []
     load_id = 0
     for hour in range(scenario.horizon_hours):
-        count = max(0, int(round(rng.gauss(scenario.loads_per_hour, 3.0))))
+        expected_count = base.expected_loads_per_hour(scenario, float(hour))
+        count = max(0, int(round(rng.gauss(expected_count, 3.0))))
+        hour_weights = [
+            weight * base.lane_demand_wave_multiplier(scenario, lane, float(hour))
+            for lane, weight in zip(lanes, base_weights)
+        ]
         for _ in range(count):
-            lane = base.weighted_choice(rng, lanes, weights)
+            lane = base.weighted_choice(rng, lanes, hour_weights)
             distance = base.lane_distance_miles(lane)
             scarcity = base.as_float(lane["scarcity_multiplier"])
             price_noise = min(1.35, max(0.65, rng.gauss(1.0, 0.09)))
-            price = base.as_float(lane["rate_midpoint"]) * price_noise * (0.9 + 0.1 * scarcity)
+            price = (
+                base.as_float(lane["rate_midpoint"])
+                * price_noise
+                * (0.9 + 0.1 * scarcity)
+                * base.demand_wave_price_multiplier(scenario, lane, float(hour))
+            )
             direct_cost = distance * scenario.base_cost_per_mile + scenario.fixed_load_cost
             travel_hours = distance / base.TRUCK_SPEED_MPH + base.SERVICE_HOURS
             loads.append(
@@ -166,6 +176,7 @@ def initial_fleet_with_seed(
 def extract_features(
     load: dict[str, object],
     fleet: dict[str, list[object]],
+    scenario: base.Scenario,
     state_values: dict[str, float],
 ) -> dict[str, float]:
     hour = float(load["hour"])
@@ -183,14 +194,28 @@ def extract_features(
     cost_per_mile = direct_cost / max(distance, 1.0)
     pickup_slack = float(load.get("pickup_latest", hour)) - hour
     delivery_slack = float(load.get("delivery_latest", hour + float(load["travel_hours"]))) - hour
+    feasibility_probe = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
+    service_failure_penalty = base.service_failure_penalty_dollars(scenario)
+    terminal_weight = base.terminal_value_weight(scenario)
+    price_wave_multiplier = base.demand_wave_price_multiplier(scenario, load, hour)
+    terminal_origin_value = terminal_weight * origin_value
+    terminal_destination_value = terminal_weight * destination_value
+    realized_profit_if_feasible = feasibility_probe.profit if feasibility_probe.accepted else -service_failure_penalty
     return {
         "bias": 1.0,
         "margin": margin / 5000.0,
+        "realized_profit_if_feasible": realized_profit_if_feasible / 5000.0,
         "future_delta": future_delta / 5000.0,
         "price_per_mile": price_per_mile / 5.0,
         "cost_per_mile": cost_per_mile / 5.0,
+        "price_wave_multiplier": price_wave_multiplier,
+        "price_window_premium": max(0.0, price_wave_multiplier - 1.0),
         "distance": distance / 3000.0,
         "available_at_origin": min(available, 20) / 20.0,
+        "has_available_truck": 1.0 if available > 0 else 0.0,
+        "feasible_accept": 1.0 if feasibility_probe.accepted else 0.0,
+        "service_failure_risk": 0.0 if feasibility_probe.accepted else 1.0,
+        "service_failure_penalty": service_failure_penalty / 5000.0,
         "pickup_deadhead_hours": float(load.get("pickup_deadhead_hours", 0.0)) / 6.0,
         "pickup_slack": pickup_slack / 24.0,
         "delivery_slack": delivery_slack / 72.0,
@@ -199,6 +224,9 @@ def extract_features(
         "scarcity_multiplier": float(load.get("scarcity_multiplier", 1.0)),
         "origin_value": origin_value / 5000.0,
         "destination_value": destination_value / 5000.0,
+        "terminal_origin_value": terminal_origin_value / 5000.0,
+        "terminal_destination_value": terminal_destination_value / 5000.0,
+        "terminal_delta": (terminal_destination_value - terminal_origin_value) / 5000.0,
         "same_state": 1.0 if origin == destination else 0.0,
         "hour_sin": math.sin(2.0 * math.pi * hour / 24.0),
         "hour_cos": math.cos(2.0 * math.pi * hour / 24.0),
@@ -219,7 +247,7 @@ def generate_rollout_labels(
 
     for idx, load in enumerate(loads[:LABEL_DECISION_LIMIT]):
         hour = float(load["hour"])
-        feature_values = extract_features(load, fleet, state_values)
+        feature_values = extract_features(load, fleet, scenario, state_values)
         start = time.perf_counter_ns()
         accept, incremental_value, accept_value, reject_value = rollout.rollout_accepts(
             load, fleet, lanes, scenario, state_values, idx + seed
@@ -425,9 +453,11 @@ def choose_action(
         )
         return accept, incremental, "rollout"
 
-    features = extract_features(load, fleet, state_values)
+    features = extract_features(load, fleet, scenario, state_values)
     pred = predict_incremental_value(model, features)
     if policy_name == "surrogate_linear":
+        if pred >= 0 and features.get("feasible_accept", 0.0) < 0.5:
+            return False, pred, "surrogate_feasibility_guard"
         return pred >= 0, pred, "surrogate"
     if policy_name == "cascade_surrogate_rollout":
         available = feas.available_count(fleet, str(load["origin_state"]), float(load["hour"]))
@@ -437,6 +467,8 @@ def choose_action(
                 load, fleet, lanes, scenario, state_values, decision_index + rollout_seed_offset
             )
             return accept, incremental, "rollout"
+        if pred >= 0 and features.get("feasible_accept", 0.0) < 0.5:
+            return False, pred, "surrogate_feasibility_guard"
         return pred >= 0, pred, "surrogate"
     raise ValueError(f"Unknown policy {policy_name}")
 
@@ -461,6 +493,7 @@ def simulate_policy(
     pickup_window_miss = 0
     delivery_window_miss = 0
     profit = 0.0
+    service_failure_penalty_cost = 0.0
     revenue = 0.0
     direct_cost = 0.0
     loaded_miles = 0.0
@@ -493,6 +526,9 @@ def simulate_policy(
         if wants_accept:
             assignment = feas.apply_accept(fleet, load, hour)
             if not assignment.accepted:
+                penalty = base.service_failure_penalty_dollars(scenario)
+                profit -= penalty
+                service_failure_penalty_cost += penalty
                 if assignment.outcome == "no_truck":
                     no_truck += 1
                 else:
@@ -538,9 +574,20 @@ def simulate_policy(
                     "outcome": outcome,
                     "latency_ms": f"{latencies[-1]:.6f}",
                 }
+                | (
+                    {
+                        "service_failure_penalty_dollars": f"{base.service_failure_penalty_dollars(scenario):.2f}"
+                        if wants_accept and outcome != "accept"
+                        else "0.00"
+                    }
+                    if base.tracks_service_failure_penalty(scenario)
+                    else {}
+                )
             )
 
     final_trucks = Counter({state: len(times) for state, times in fleet.items()})
+    terminal_value = base.terminal_fleet_value(fleet, scenario, state_values)
+    profit += terminal_value
     summary = {
         "policy": policy_name,
         "cascade_band_dollars": f"{cascade_band_dollars:.2f}"
@@ -572,6 +619,10 @@ def simulate_policy(
             f"{state}:{count}" for state, count in final_trucks.most_common(6)
         ),
     }
+    if base.tracks_service_failure_penalty(scenario):
+        summary["service_failure_penalty_cost"] = f"{service_failure_penalty_cost:.2f}"
+    if base.tracks_terminal_value(scenario):
+        summary["terminal_fleet_value"] = f"{terminal_value:.2f}"
     return summary, decisions
 
 
