@@ -12,53 +12,56 @@ FreightBidBench uses only the Python standard library at runtime.
 git clone https://github.com/aswincsekar/freightbidbench.git && cd freightbidbench && make test
 ```
 
-## Reproduce v0.2.1
+## Reproduce v0.3
 
-The v0.2.1 paper run and generated artifacts are under
-`benchmark_runs/paper_v02/`. The reference manifest is:
+The v0.3 paper artifacts are assembled under `benchmark_runs/paper_v03/` from
+the ten-seed methods reference run in
+`benchmark_runs/v03_sweeps/methods_cascade_seed10_label200/`, whose
+`freightbidbench_manifest.json` is the canonical reproducibility anchor.
 
-```text
-benchmark_runs/paper_v02/freightbidbench_manifest.json
-```
-
-Run the paper preset:
+Run the ten-seed methods frontier:
 
 ```bash
-python3 scripts/run_freightbidbench.py --preset paper --output-dir benchmark_runs/paper_v02
+python3 scripts/run_freightbidbench.py \
+  --config configs/freightbidbench_v03_scenarios.json \
+  --preset standard --scenarios mild,tight,scarce \
+  --seed-count 10 --label-limit 200 --cascade-bands 0,250,500,700,900 \
+  --output-dir benchmark_runs/v03_sweeps/methods_cascade_seed10_label200
 ```
 
-Generate figures:
+Compute paired policy deltas and the public-data calibration report:
 
 ```bash
-python3 scripts/plot_freightbidbench.py --run-dir benchmark_runs/paper_v02
+python3 scripts/analyze_policy_deltas.py \
+  --run-dir benchmark_runs/v03_sweeps/methods_cascade_seed10_label200 --cascade-band 500
+make calibration-report
 ```
 
-Compute paired policy deltas:
+Assemble paper tables and build the paper:
 
 ```bash
-python3 scripts/analyze_policy_deltas.py --run-dir benchmark_runs/paper_v02
+make paper-v03-tables
+make paper-v03-pdf
 ```
 
-Build the paper draft:
-
-```bash
-make paper-pdf
-```
+The v0.2.1 release remains available for historical comparison under
+`benchmark_runs/paper_v02/` (git tag `v0.2.1`).
 
 ## Main Artifacts
 
 | Path | Purpose |
 | --- | --- |
 | `scripts/run_freightbidbench.py` | Benchmark runner with smoke, standard, and paper presets. |
-| `scripts/freight_feasibility.py` | v0.2 feasibility layer for truck state, pickup reach, appointment windows, HOS clocks, and yard delays. |
+| `scripts/freight_feasibility.py` | Feasibility layer: truck state, pickup reach, appointment windows, HOS clocks, yard delays. |
+| `scripts/run_lagrangian_bound.py` | Lagrangian-per-truck information-relaxation hindsight bound. |
 | `scripts/analyze_policy_deltas.py` | Paired-seed bootstrap policy-difference analysis. |
-| `configs/freightbidbench_v02_scenarios.json` | Scenario, preset, policy-set, seed, and cascade-band contract. |
-| `benchmark_runs/paper_v02/freightbidbench_manifest.json` | v0.2.1 reference manifest. |
-| `benchmark_runs/paper_v02/freightbidbench_policy_summary.csv` | Aggregate policy results. |
-| `benchmark_runs/paper_v02/freightbidbench_policy_delta_summary.csv` | Paired deltas versus rollout teacher. |
-| `benchmark_runs/paper_v02/figures/` | Generated SVG benchmark figures. |
-| `papers/freightbidbench_v02_benchmark_paper.tex` | LaTeX paper draft. |
+| `scripts/analyze_calibration.py` | Public FAF/USDA calibration cross-checks. |
+| `configs/freightbidbench_v03_scenarios.json` | v0.3 scenario, preset, policy-set, seed, and cascade-band contract. |
+| `benchmark_runs/v03_sweeps/methods_cascade_seed10_label200/` | Ten-seed methods reference run and manifest. |
+| `benchmark_runs/paper_v03/` | Assembled v0.3 paper tables. |
+| `papers/freightbidbench_v03_benchmark_paper.tex` | v0.3 LaTeX paper. |
 | `papers/references.bib` | BibTeX references. |
+| `benchmark_runs/paper_v02/` | v0.2.1 historical reference run. |
 
 ## License
 
@@ -68,10 +71,10 @@ licensed under CC BY 4.0; see `LICENSE-DATA`.
 
 ## Citation
 
-Use the GitHub release tag `v0.2.1` for exact reproduction:
+Use the GitHub release tag `v0.3.0` for exact reproduction:
 
 ```bash
-git checkout v0.2.1
+git checkout v0.3.0
 ```
 
 After the arXiv version is live, cite the arXiv identifier and this release tag

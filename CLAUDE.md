@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-FreightBidBench v0.2.1: a public-calibrated synthetic benchmark for real-time truckload bid acceptance under closed-loop fleet state, appointment windows, simplified HOS clocks, and stochastic yard delays. Released as a standalone artifact ahead of the method paper.
+FreightBidBench v0.3: a public-calibrated synthetic benchmark for real-time truckload bid acceptance under closed-loop fleet state, appointment windows, simplified HOS clocks, and stochastic yard delays. v0.3 adds three economic reward layers (service-failure penalty, terminal fleet value, temporal price-premium window), exact and Lagrangian-per-truck hindsight ceilings, and a latency-aware surrogate-to-rollout cascade. Released as a standalone artifact ahead of the method paper.
 
 The benchmark is intentionally **dependency-free at runtime** — Python 3.10+ standard library only. Do not add third-party dependencies (numpy, pandas, scikit-learn, etc.) without strong justification; the dependency-free reference implementation is a feature, not a limitation.
 

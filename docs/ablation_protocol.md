@@ -1,6 +1,6 @@
 # FreightBidBench Feasibility Ablations
 
-FreightBidBench v0.2 can disable individual operational-feasibility features so
+FreightBidBench can disable individual operational-feasibility features so
 the paper can report how much each layer changes the benchmark.
 
 ## CLI Flags

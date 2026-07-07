@@ -1,4 +1,4 @@
-# FreightBidBench v0.2 Benchmark Specification
+# FreightBidBench v0.3 Benchmark Specification
 
 This document pins the public benchmark contract used by
 `scripts/run_freightbidbench.py`.
@@ -6,13 +6,15 @@ This document pins the public benchmark contract used by
 ## Versioned Configuration
 
 The benchmark reads scenario and policy metadata from
-`configs/freightbidbench_v02_scenarios.json`.
+`configs/freightbidbench_v03_scenarios.json`. (The runner defaults to the v0.2
+config, so v0.3 runs must pass
+`--config configs/freightbidbench_v03_scenarios.json`.)
 
 | Field | Current value | Meaning |
 | --- | --- | --- |
-| `benchmark_version` | `freightbidbench-v0.2` | Public benchmark family. |
-| `scenario_config_version` | `scenario-v0.2.1` | Scenario and preset contract. |
-| `policy_set_version` | `policy-set-v0.2.1` | Default public policy set. |
+| `benchmark_version` | `freightbidbench-v0.3` | Public benchmark family. |
+| `scenario_config_version` | `scenario-v0.3.2` | Scenario and preset contract. |
+| `policy_set_version` | `policy-set-v0.3.0` | Default public policy set. |
 | `default_first_seed` | `20260506` | First train seed used when no override is supplied. |
 
 Changing scenario parameters, default policies, cascade bands, or preset seed
@@ -35,7 +37,7 @@ successful assignment.
 
 ## State And Feasibility
 
-Version 0.2 exposes:
+The state and feasibility layer (introduced in v0.2) exposes:
 
 - individual truck locations and availability times,
 - candidate load origin, destination, price, cost, distance, and scarcity,
@@ -43,11 +45,23 @@ Version 0.2 exposes:
 - pickup and delivery appointment windows,
 - simplified 11/14/10 HOS clocks,
 - stochastic pickup and dropoff yard delays,
-- state-level future-value features.
+- state-level future-value features, including terminal-value and temporal
+  price-premium features used by the v0.3 economic layers.
 
 The benchmark does not model street-level routing, traffic, weather, road
 closures, equipment maintenance, home-time preferences, teams, or split-sleeper
 rules.
+
+## Economic Layers And Ceilings (v0.3)
+
+v0.3 adds three versioned reward layers on top of the feasibility layer:
+a service-failure penalty (`ρ = $10`, L1), a terminal fleet value
+(`ω = 0.25`, L2), and a daily price-premium window (`1.5×` on-peak, L3). It
+also adds two upper bounds on the optimal closed-loop value: an exact
+small-prefix dynamic program (`scripts/run_hindsight_bound.py`) and a
+Lagrangian-per-truck information relaxation
+(`scripts/run_lagrangian_bound.py`); a looser LP-style bound is available via
+`scripts/run_relaxed_hindsight_bound.py`.
 
 ## Scenarios And Presets
 
@@ -67,7 +81,7 @@ The public presets are:
 | `standard` | Three-seed local development result across all scenarios. |
 | `paper` | Ten-seed preliminary paper table across all scenarios. |
 
-Exact numeric values live in `configs/freightbidbench_v02_scenarios.json` and
+Exact numeric values live in `configs/freightbidbench_v03_scenarios.json` and
 are copied into every run manifest.
 
 ## Public Policies
@@ -108,6 +122,7 @@ The repository includes a tiny golden smoke test:
 
 ```bash
 python3 scripts/run_freightbidbench.py \
+  --config configs/freightbidbench_v03_scenarios.json \
   --preset smoke \
   --seed-count 1 \
   --label-limit 5 \

@@ -6,9 +6,9 @@ Generated from existing benchmark artifacts. Values are draft table inputs, not 
 
 | Scenario | Best Simple | Simple Retention | Surrogate Retention | Cascade Band | Cascade Retention | Cascade Latency | Rollout Latency |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `mild` | `bid_price` | 100.1% | 98.2% | $0 | 99.0% | 5.77 ms | 49.50 ms |
-| `tight` | `bid_price` | 91.0% | 94.2% | $500 | 98.2% | 12.95 ms | 32.11 ms |
-| `scarce` | `accept_all_feasible` | 86.5% | 89.3% | $700 | 98.4% | 13.80 ms | 20.59 ms |
+| `mild` | `bid_price` | 100.1% | 98.2% | $0 | 99.0% | 5.58 ms | 47.53 ms |
+| `tight` | `bid_price` | 91.0% | 94.2% | $500 | 98.2% | 12.88 ms | 31.70 ms |
+| `scarce` | `accept_all_feasible` | 86.5% | 89.3% | $700 | 98.4% | 13.97 ms | 20.87 ms |
 
 ## Relaxed Full-Horizon Bound
 

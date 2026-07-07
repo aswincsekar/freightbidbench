@@ -2,7 +2,8 @@
 
 ## Suggested Repository Description
 
-Feasibility-calibrated benchmark for real-time truckload bid acceptance.
+Public-calibrated benchmark for real-time truckload bid acceptance, with
+operational feasibility, hindsight ceilings, and a latency-aware policy cascade.
 
 ## Suggested Topics
 
@@ -14,11 +15,11 @@ Feasibility-calibrated benchmark for real-time truckload bid acceptance.
 - benchmark
 - approximate-dynamic-programming
 
-## Initial Release Checklist
+## Release Checklist (current: v0.3.0)
 
-1. Create an empty public GitHub repository, or make the existing repository
-   public.
-2. Add the remote:
+1. (One-time; skip if the repository is already public) Create an empty public
+   GitHub repository, or make the existing repository public.
+2. Add the remote (one-time):
 
    ```bash
    git remote add origin git@github.com:aswincsekar/freightbidbench.git
@@ -31,17 +32,21 @@ Feasibility-calibrated benchmark for real-time truckload bid acceptance.
    ```
 
 4. Confirm the GitHub Actions CI run passes.
-5. Create the first tag:
+5. Tag the release:
 
    ```bash
-   git tag -a v0.2.1 -m "FreightBidBench v0.2.1"
-   git push origin v0.2.1
+   git tag -a v0.3.0 -m "FreightBidBench v0.3.0"
+   git push origin v0.3.0
    ```
 
-6. Create the GitHub release from `v0.2.1` and attach or point readers to the
-   tracked `benchmark_runs/paper_v02` reference outputs.
+6. Create the GitHub release from `v0.3.0` and point readers to the tracked
+   `benchmark_runs/paper_v03` assembled tables and the
+   `benchmark_runs/v03_sweeps/methods_cascade_seed10_label200`
+   reference manifest. (The prior `v0.2.1` release remains for historical
+   comparison.)
 7. If Zenodo is enabled for the repository, confirm that it minted a DOI for
-   the `v0.2.1` release and add the DOI to the README and paper draft.
+   the `v0.3.0` release and add the DOI to the README, `CITATION.cff`, and the
+   paper's Data Availability Statement.
 
 ## Data Note
 

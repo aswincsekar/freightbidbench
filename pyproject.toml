@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "freightbidbench"
-version = "0.2.1"
+version = "0.3.0"
 description = "Public-calibrated benchmark for real-time truckload bid acceptance."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,6 +35,6 @@ dependencies = []
 py-modules = []
 
 [tool.freightbidbench]
-benchmark-version = "freightbidbench-v0.2"
-release = "v0.2.1"
-reference-run = "benchmark_runs/paper_v02"
+benchmark-version = "freightbidbench-v0.3"
+release = "v0.3.0"
+reference-run = "benchmark_runs/v03_sweeps/methods_cascade_seed10_label200"

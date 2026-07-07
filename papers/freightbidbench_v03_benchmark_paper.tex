@@ -15,6 +15,10 @@
 \newtheorem{assumption}{Assumption}
 \newtheorem{remark}{Remark}
 
+% Absorb minor overfull boxes from long \texttt/\path tokens (policy and
+% feature names) without visibly loosening spacing.
+\setlength{\emergencystretch}{3em}
+
 \title{Latency-Aware Bid Acceptance under Operational Feasibility:
 A Public Benchmark with Hindsight Ceilings\thanks{Code and benchmark
 artifacts: \url{https://github.com/aswincsekar/freightbidbench}. Artifact

@@ -1,13 +1,13 @@
 {
-  "benchmark_version": "freightbidbench-v0.3-dev",
+  "benchmark_version": "freightbidbench-v0.3",
   "scenario_config_version": "scenario-v0.3.2",
-  "policy_set_version": "policy-set-v0.2.1",
+  "policy_set_version": "policy-set-v0.3.0",
   "scenario_config_path": "configs/freightbidbench_v03_scenarios.json",
   "preset": "standard",
   "preset_description": "Three seed pairs across mild, tight, and scarce regimes.",
   "command": "scripts/run_freightbidbench.py --config configs/freightbidbench_v03_scenarios.json --preset standard --scenarios mild,tight,scarce --seed-count 10 --label-limit 200 --cascade-bands 0,250,500,700,900 --output-dir benchmark_runs/v03_sweeps/methods_cascade_seed10_label200",
   "python": "3.14.4",
-  "elapsed_seconds": 3271.22,
+  "elapsed_seconds": 3230.27,
   "source_inputs": {
     "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
     "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"

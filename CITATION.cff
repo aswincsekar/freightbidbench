@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use FreightBidBench, please cite this benchmark package."
-title: "FreightBidBench: Feasibility Calibration for Public Real-Time Truckload Bid Benchmarks"
-version: "0.2.1"
-date-released: "2026-05-09"
+title: "FreightBidBench: A Public Benchmark for Real-Time Truckload Bid Acceptance with Hindsight Ceilings"
+version: "0.3.0"
+date-released: "2026-07-01"
 type: software
 authors:
   - family-names: "Chandrasekaran"
