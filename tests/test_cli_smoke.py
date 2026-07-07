@@ -124,7 +124,7 @@ class FreightBidBenchCliTests(unittest.TestCase):
 
             manifest_path = output_dir / "freightbidbench_manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            self.assertEqual(manifest["benchmark_version"], "freightbidbench-v0.3-dev")
+            self.assertEqual(manifest["benchmark_version"], "freightbidbench-v0.3")
             self.assertEqual(manifest["scenario_config_version"], "scenario-v0.3.2")
             self.assertEqual(
                 manifest["scenario_config_path"],

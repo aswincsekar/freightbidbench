@@ -127,9 +127,12 @@ non-trivial latency-profit frontier, but the benchmark stands as a
 reproducible test bed independent of any specific method.
 
 Our contributions are as follows. We formalize the v0.3 closed-loop MDP and
-prove that each of three new reward components (service-failure penalty,
-terminal fleet value, temporal price-premium window) separates a distinct
-class of policies that any future-aware method must beat. We characterize
+show that each of three new reward components (service-failure penalty,
+terminal fleet value, temporal price-premium window) isolates a distinct
+class of policies that any future-aware method must beat; for the
+service-failure penalty this separation is an exact identity
+(Proposition~\ref{prop:l1}), and for terminal value and the price-premium
+window it is established empirically through layer ablations. We characterize
 two complementary full-horizon upper bounds: a simple LP-style
 relaxation that drops integrality, sequencing, and location constraints,
 and a tighter Lagrangian-per-truck information relaxation
@@ -437,7 +440,7 @@ band schedule bump the relevant version string in the manifest.
 We anchor policy comparison against three complementary ceilings: an
 exact realized-seed dynamic program on small load prefixes, a simple
 LP-style relaxed full-horizon upper bound, and a Lagrangian-per-truck
-information-relaxation bound (Theorem~\ref{prop:lagrangian}) that
+information-relaxation bound (Proposition~\ref{prop:lagrangian}) that
 respects per-truck sequencing and HOS structure. The exact DP is the
 trustworthy small-instance reference; the LP relaxation is a fast but
 loose full-horizon ceiling; the Lagrangian-per-truck bound is
@@ -552,11 +555,14 @@ location continuity.
 For any $\boldsymbol{\lambda} \in \mathbb{R}_{\geq 0}^{|T|}$,
 $V^\star \leq L(\boldsymbol{\lambda})$. Consequently
 \begin{equation}
-  V^\star \leq \min_{\boldsymbol{\lambda} \geq 0} L(\boldsymbol{\lambda}),
+  V^\star \leq \inf_{\boldsymbol{\lambda} \geq 0} L(\boldsymbol{\lambda}),
 \end{equation}
-and the dual minimum is attained at some
-$\boldsymbol{\lambda}^\star \geq 0$ since $L$ is convex and proper in
-$\boldsymbol{\lambda}$.
+and the infimum is attained at some $\boldsymbol{\lambda}^\star \geq 0$:
+on a realized scenario each per-truck sub-MDP has finitely many policies,
+so $L$ is a finite maximum of affine functions of $\boldsymbol{\lambda}$
+(piecewise linear and convex) and coercive on $\boldsymbol{\lambda} \geq 0$
+(as $\lambda_t \to \infty$ every truck rejects load $t$, so
+$L \to \infty$).
 \end{proposition}
 
 \begin{proof}[Sketch]
@@ -573,12 +579,13 @@ characterization.
 
 Compared to Proposition~\ref{prop:bound}'s LP-style bound, the
 Lagrangian relaxation drops only one constraint (cross-truck
-assignment) rather than three, so it is tighter. The dual minimum is
-attained by subgradient ascent on $\boldsymbol{\lambda}$: at the
-current solution, the subgradient component on $\lambda_t$ equals
+assignment) rather than three, so it is tighter. We minimize $L$ over
+$\boldsymbol{\lambda} \geq 0$ by projected subgradient descent: a
+subgradient component on $\lambda_t$ is
 $1 - \sum_k a^{(k)\star}_t(\boldsymbol{\lambda})$, where
 $a^{(k)\star}_t(\boldsymbol{\lambda})$ is truck $k$'s optimal
-acceptance of load $t$ in its sub-MDP. We use diminishing-step ascent
+acceptance of load $t$ in its sub-MDP, so the diminishing-step update
+that descends $L$ and projects onto $\boldsymbol{\lambda} \geq 0$ is
 $\lambda_t \leftarrow \max(0, \lambda_t + \alpha_n (\sum_k a^{(k)\star}_t - 1))$
 with $\alpha_n = c / \sqrt{n}$.
 
@@ -879,12 +886,14 @@ rollout.
 \begin{table}[t]
 \centering
 \caption{Ten-seed methods comparison under \texttt{scenario-v0.3.2}.
-Retention is mean closed-loop profit relative to the rollout teacher; the
-cascade uses the representative band $\beta = \$500$ at frozen scarcity
-threshold $\kappa = 2$. The last column is the paired-bootstrap $95\%$ CI
-on the cascade-minus-rollout profit delta ($n = 10$); an interval
-containing \$0 means the cascade is statistically indistinguishable from
-rollout.}
+Retention is mean closed-loop profit relative to the rollout teacher. The
+cascade row uses a single \emph{common} representative band
+$\beta = \$500$ for both scenarios at frozen scarcity threshold
+$\kappa = 2$---not the per-scenario best frontier point (the full frontier
+in Table~\ref{tab:frontier} peaks at a higher band on \texttt{scarce}).
+The last column is the paired-bootstrap $95\%$ CI on the
+cascade-minus-rollout profit delta ($n = 10$); an interval containing \$0
+means the cascade is statistically indistinguishable from rollout.}
 \label{tab:methods}
 \small
 \resizebox{\textwidth}{!}{%
@@ -1064,7 +1073,7 @@ decisions to a more expensive teacher.
 suggests, once per-truck structure is respected.} The LP-style bound
 loses most of its tightness to dropping sequencing, location, and
 integrality constraints simultaneously; the Lagrangian-per-truck
-information relaxation (Theorem~\ref{prop:lagrangian}) retains those
+information relaxation (Proposition~\ref{prop:lagrangian}) retains those
 constraints and tightens the bound by $20.7\%$ on \texttt{tight} and
 $39.3\%$ on \texttt{scarce}. Rollout retention against the Lagrangian
 bound rises from $53.6\%$ to $67.6\%$ on \texttt{tight} and from $39.8\%$

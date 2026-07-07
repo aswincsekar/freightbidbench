@@ -1,7 +1,7 @@
 {
-  "benchmark_version": "freightbidbench-v0.3-dev",
+  "benchmark_version": "freightbidbench-v0.3",
   "scenario_config_version": "scenario-v0.3.2",
-  "policy_set_version": "policy-set-v0.2.1",
+  "policy_set_version": "policy-set-v0.3.0",
   "default_first_seed": 20260506,
   "seed_rule": "train_seed = first_seed + 2*i; eval_seed = train_seed + 1",
   "source_inputs": {
