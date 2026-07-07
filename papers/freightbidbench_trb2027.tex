@@ -1,0 +1,363 @@
+\documentclass[numbered]{trbunofficial}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{lastpage}
+\usepackage[hidelinks]{hyperref}
+
+\title{Latency-Aware Truckload Bid Acceptance under Operational
+Feasibility: A Public Benchmark with Hindsight Ceilings}
+\AuthorHeaders{Chandrasekaran}
+\author{%
+Aswin Chandrasekaran*\\
+Bubba AI\\
+\texttt{<FILL: City, State/Country, Postcode>}\\
+ORCID: \texttt{<FILL if available>}\\
+Email: aswin@bubba.ai\\[6pt]
+*Corresponding Author%
+}
+\date{August 1, 2026}
+
+% Current TRB sample lists total pages on the title page (not a word count).
+% Set textwords to suppress the class's texcount call (needs no shell-escape),
+% then override the title-page line to report total pages.
+\setcounter{textwords}{2700}
+\renewcommand{\printwordcount}{Total Number of Pages: \pageref{LastPage}}
+\setcitestyle{aysep={}}  % TRB author-date style: (Author 2020), no comma
+
+\begin{document}
+\maketitle
+
+\section*{Abstract}
+\textbf{Objectives:} Online truckload bid acceptance requires accept or
+reject decisions within seconds under closed-loop fleet state, yet public,
+reproducible benchmarks are scarce and policies are usually judged only
+against a suboptimal heuristic. We introduce a public benchmark and
+measured performance ceilings for this problem and evaluate a
+latency-aware acceptance policy.
+\textbf{Methods:} We formulate a finite-horizon closed-loop Markov decision
+process with operational feasibility (pickup reach, appointment windows,
+simplified hours-of-service, stochastic yard delays) and three economic
+layers (service-failure penalty, terminal fleet value, price-premium
+window), calibrated from public Freight Analysis Framework (FAF) and
+U.S. Department of Agriculture (USDA) truck-rate data. We derive two
+hindsight ceilings---an exact small-prefix dynamic program and a
+Lagrangian-per-truck information-relaxation bound---and evaluate a
+surrogate-to-rollout cascade across ten paired seeds with bootstrap
+confidence intervals.
+\textbf{Findings:} The Lagrangian bound is 20.7\% tighter than an LP
+relaxation on a tight-capacity scenario and 39.3\% tighter on a
+scarce-capacity scenario, relocating the rollout teacher to 66--68\% of a
+structure-respecting ceiling. The cascade recovers roughly 98\% of rollout
+profit at 40--56\% of its mean decision latency and is statistically
+indistinguishable from rollout on the tight scenario.
+\textbf{Novelty:} This is a public-calibrated, dependency-free, closed-loop
+benchmark that makes operational feasibility part of the reward and pairs
+it with a structure-respecting hindsight ceiling.
+\textbf{Practical Applications:} Feasibility-blind tender scoring carries a
+hidden linear cost; a cheap model should be deployed with selective
+escalation of high-stakes capacity decisions; and the remaining headroom
+lies in cross-truck coordination rather than single-tender scoring.
+
+\vspace{12pt}
+\noindent\textit{Keywords}: truckload bid acceptance, closed-loop
+stochastic optimization, approximate dynamic programming,
+information-relaxation bounds, latency-aware policy cascade, public
+benchmark.
+
+\newpage
+
+\section{Introduction}
+Truckload carriers and brokers face an online accept/reject decision each
+time a load tender arrives, and in a typical broker workflow the tender
+must be priced and answered within seconds. The decision is operationally
+constrained: a load can be served only by a truck that can reach the
+pickup, satisfies appointment windows and hours-of-service (HOS) clocks,
+and remains feasible through delivery. It is also economically
+constrained: a tender with positive immediate margin can still be a poor
+decision if it consumes a scarce truck before a predictable price-premium
+window or strands the fleet in a market with weak outbound flow.
+Conversely, a benchmark cannot claim to compare future-aware acceptance
+policies meaningfully unless it (i) makes operational feasibility part of
+the reward function rather than a side diagnostic, and (ii) anchors policy
+evaluation against a measured ceiling rather than only against a finite
+stochastic teacher.
+
+Two gaps have held the field back. First, no public, reproducible
+benchmark captures the closed-loop, fleet-state-dependent, latency-aware
+truckload accept/reject problem: static routing instances are not
+closed-loop, and dynamic-fleet studies typically rely on proprietary
+operator data. Second, policy studies commonly report retention against a
+rollout or reoptimization heuristic, which is itself suboptimal, leaving
+unclear how much value remains relative to the true optimum.
+
+This paper addresses both. Our contributions are: (1) a
+public-calibrated, dependency-free, closed-loop benchmark
+(FreightBidBench) with explicit operational feasibility and three economic
+layers, reproducible from public Freight Analysis Framework (FAF) and
+U.S. Department of Agriculture (USDA) truck-rate data; (2) two hindsight
+ceilings---an exact small-prefix dynamic program and a Lagrangian-per-truck
+information-relaxation bound substantially tighter than a naive LP
+relaxation; and (3) a latency-aware surrogate-to-rollout cascade that
+recovers nearly all of rollout's profit at a fraction of its decision
+latency. Throughout, the benchmark is the primary artifact; the methods
+are evidence that the sharpened problem admits a non-trivial
+latency--profit frontier and a reproducible test bed for future work.
+
+\section{Related Work}
+Dynamic load acceptance in truckload operations has been studied as an
+online state-dependent control problem, including large-fleet acceptance
+with time windows \citep{kim2004dynamic} and real-time reoptimization
+\citep{yang2004realtime}. The approximate dynamic programming (ADP) line
+for fleet management \citep{simao2009adp,powell2007stochastic} established
+that state-dependent value-function approximation can match operator-scale
+decisions, but this work has historically been driven by private operator
+data. Static vehicle-routing benchmarks \citep{solomon1987vrptw,uchoa2017cvrp}
+shaped the routing literature yet are neither closed-loop nor stochastic in
+tender arrival, and dynamic-VRP methods
+\citep{ulmer2019offline,pillac2013review} target multi-customer routing
+rather than online bid acceptance. Anchoring policy evaluation against
+upper bounds via information relaxation \citep{brown2010information} and
+Lagrangian relaxation of weakly coupled dynamic programs
+\citep{adelman2008relaxations,yezhu2014weakly} is well established in
+stochastic dynamic programming; we adopt this framing to bound the
+truckload problem. Finally, cascading a cheap model to an expensive one,
+escalating only uncertain instances, descends from cascade classifiers and
+anytime/metareasoning control \citep{violajones2001,zilberstein1996}; what
+has been missing is a systematic, publicly calibrated, feasibility-aware
+instantiation for online freight decisions.
+
+\section{Problem and Benchmark}
+We model closed-loop truckload bid acceptance as a finite-horizon Markov
+decision process over continuous, time-stamped events.
+
+\subsection{State, Action, and Feasibility}
+The horizon is $T=72$ hours and the fleet has $K$ trucks. Each truck's
+state is $(\ell, \tau, h, d)$: its market, next-available time, and
+remaining HOS drive and duty budgets. A load tender presents origin and
+destination markets, posted price, linehaul cost, mileage, pickup and
+delivery appointment windows, and stochastic yard-delay draws. The system
+state is the fleet, the current tender, and time; the action is binary
+(accept or reject). A deterministic feasibility map attempts to assign an
+accepted load to a truck in the origin market, dropping trucks that miss
+the latest pickup, computing pickup reach, HOS-feasible schedules with
+rest insertions, and delivery arrival; among feasible trucks it selects the
+one that becomes available earliest after delivery. If none is feasible the
+fleet is not mutated and the accept is recorded as a service failure.
+
+\subsection{Economic Layers}
+Three versioned reward layers sharpen the decision problem so that distinct
+policy classes separate. (L1) A \textit{service-failure penalty} $\rho$
+(frozen at \$10) charges any accept of an infeasible load, so
+feasibility-blind policies pay regret linear in their infeasible-accept
+rate. (L2) A \textit{terminal fleet value} $\omega \sum_k V(\ell^{(k)}_T)$
+with $\omega=0.25$ rewards ending trucks in high-value markets, where
+$V(\cdot)$ combines FAF outbound intensity and a FAF/USDA net-outbound
+imbalance panel; it penalizes greedy positioning. (L3) A daily
+$1.5\times$ \textit{price-premium window} penalizes future-blind timing,
+since accepting a moderate off-peak load can consume capacity needed for a
+predictable on-peak premium.
+
+\subsection{Public Calibration}
+Candidate loads are drawn proportional to lane FAF tonnage; the initial
+fleet is placed proportional to per-origin FAF outbound tonnage; distances
+follow FAF ton-miles; and posted prices are drawn from USDA Agricultural
+Marketing Service truck-rate bands. Implied per-mile rates (median \$3.28,
+interquartile range \$2.83--\$3.57) match published refrigerated truckload
+spot rates. The runtime uses only the Python standard library, and every
+result is reproducible from a manifest recording the command, version
+strings, seed pairs, and input paths.
+
+\section{Hindsight Ceilings}
+Retention against a finite rollout teacher does not reveal how much profit
+is left relative to the optimal policy value $V^\star$, which is
+intractable to compute for a fleet of dozens of trucks over a continuous
+horizon. We therefore bound $V^\star$ from above.
+
+\subsection{Exact Small-Prefix Dynamic Program}
+For a truncated realized stream of $L$ loads, the exact problem is a binary
+decision tree over deterministic post-acceptance fleet transitions, solved
+by memoized search keyed on (prefix index, fleet hash), tractable for
+$L \leq 16$. On a 12-load tight prefix the exact ceiling is matched by
+simple feasibility-aware policies, confirming short prefixes are flat under
+the v0.3 economics; the exact program is a trustworthy small-instance
+reference rather than a full-horizon ceiling.
+
+\subsection{Lagrangian-per-truck Bound}
+The only constraint coupling trucks is that at most one truck serves each
+load. Revealing the realized scenario and dropping integrality, sequencing,
+and location constraints yields a valid but loose LP-style bound---an
+information relaxation \citep{brown2010information}. Dualizing only the
+assignment constraint with multipliers $\lambda_t \geq 0$ decouples the
+fleet into independent per-truck sub-MDPs that retain each truck's HOS,
+location, and sequencing structure:
+\begin{equation}
+L(\boldsymbol\lambda) = \sum_t \lambda_t + \sum_k V^k_{\boldsymbol\lambda}(u^{(k)}_0),
+\qquad V^\star \leq \min_{\boldsymbol\lambda \geq 0} L(\boldsymbol\lambda).
+\end{equation}
+Weak duality gives validity for any $\boldsymbol\lambda \geq 0$; the joint
+supremum decomposes across trucks because rewards and actions are
+truck-separable once assignment is dualized. Each per-truck sub-MDP is
+solved exactly by bucket-snapped forward enumeration---clocks are rounded
+to each bucket's favorable corner, so per-truck values only over-estimate
+and the joint upper bound is preserved---and $\boldsymbol\lambda$ is
+optimized by diminishing-step subgradient ascent. Full proofs and the
+looseness decomposition appear in the extended version. Empirically the
+Lagrangian bound is 20.7\% tighter than the LP bound on \texttt{tight} and
+39.3\% tighter on \texttt{scarce} (Table~\ref{tab:bound}).
+
+\section{Policies: Surrogate and Cascade}
+The policy set includes simple baselines (reject-all, accept-all-feasible,
+myopic-margin, bid-price); a dependency-free linear \textit{surrogate} fit
+by closed-form ridge regression on rollout incremental-value labels, using
+standardized features and a feasibility guard; a finite \textit{rollout
+teacher} that expands accept and reject branches under common random
+numbers; and a \textit{cascade}. The cascade runs the cheap surrogate by
+default and escalates to the rollout teacher only when a decision is
+uncertain or high-stakes. Let $\Delta_\theta(s)$ be the surrogate's signed
+accept-minus-reject score and $n_o(s)$ the number of immediately available
+trucks in the load's origin market. With boundary band $\beta \geq 0$ and
+scarcity threshold $\kappa$, escalation fires when
+\begin{equation}
+E(s;\beta,\kappa) = \mathbf{1}\{|\Delta_\theta(s)| \leq \beta\} \;\vee\; \mathbf{1}\{n_o(s) \leq \kappa\} = 1.
+\end{equation}
+The rollout-call share, and hence mean decision latency, is monotone in
+both thresholds, so $(\beta,\kappa)$ traces a latency--profit frontier. The
+scarcity trigger defers exactly the high-stakes capacity decisions on which
+the surrogate is least reliable.
+
+\section{Experiments}
+All experiments use the frozen \texttt{scenario-v0.3.2} contract with ten
+paired (train, eval) seeds; confidence intervals are paired-bootstrap 95\%
+intervals from 20{,}000 resamples. We report a tight-capacity and a
+scarce-capacity scenario, with a mild scenario as a negative control.
+Layer-ablation sweeps confirm each layer separates its target policy class:
+under $\rho=\$10$, feasibility-blind policies fall below the
+feasibility-aware greedy baseline; $\omega=0.25$ reduces
+accept-all-feasible retention below 95\% of rollout; and the price-premium
+window widens the rollout-versus-best-simple gap past ten percentage
+points.
+
+\begin{table}[t]
+\caption{Ten-Seed Methods Comparison under scenario-v0.3.2. Retention is
+mean closed-loop profit relative to the rollout teacher; the cascade uses
+band $\beta=\$500$ at scarcity threshold $\kappa=2$. The last column is the
+paired-bootstrap 95\% CI on the cascade$-$rollout profit delta ($n=10$); an
+interval containing \$0 means the cascade is statistically indistinguishable
+from rollout.}
+\label{tab:methods}
+\centering\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+Scenario & Best simple & Surrogate & Cascade & Cascade/Rollout ms & $\Delta$ vs rollout (95\% CI) \\
+\midrule
+\texttt{tight}  & 91.0\% & 94.2\% & 98.2\% & 12.95 / 32.11 & $-\$23.3$k $[-\$61.2$k, $+\$11.6$k$]$ \\
+\texttt{scarce} & 86.5\% & 89.3\% & 98.0\% & 11.54 / 20.59 & $-\$20.7$k $[-\$33.4$k, $-\$7.2$k$]$ \\
+\texttt{mild}   & 100.1\% & 98.2\% & 99.7\% &  8.31 / 49.50 & $-\$4.2$k $[-\$18.2$k, $+\$11.0$k$]$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table}[t]
+\caption{Cascade Latency--Profit Frontier over the Boundary Band $\beta$ at
+$\kappa=2$. Rollout share is the fraction of decisions escalated to the
+rollout teacher.}
+\label{tab:frontier}
+\centering\small
+\begin{tabular}{lrrrr}
+\toprule
+Scenario & $\beta$ & Retention & Mean latency ms & Rollout share \\
+\midrule
+\texttt{tight}  &   0 & 97.7\% &  6.27 & 28.6\% \\
+\texttt{tight}  & 500 & 98.2\% & 12.95 & 44.7\% \\
+\texttt{tight}  & 900 & 99.0\% & 17.72 & 57.0\% \\
+\texttt{scarce} &   0 & 93.7\% &  6.09 & 45.4\% \\
+\texttt{scarce} & 500 & 98.0\% & 11.54 & 59.6\% \\
+\texttt{scarce} & 900 & 99.5\% & 15.72 & 78.6\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Full-Horizon Upper Bounds and Rollout Retention against Each
+Ceiling. The Lagrangian-per-truck bound retains per-truck structure and is
+20.7\% tighter than the LP relaxation on \texttt{tight}, 39.3\% on
+\texttt{scarce}.}
+\label{tab:bound}
+\centering\small
+\begin{tabular}{lrrrrr}
+\toprule
+Scenario & LP bound & Roll. ret. (LP) & Lagrangian bound & Roll. ret. (Lag) & Tightening \\
+\midrule
+\texttt{tight}  & \$2{,}377{,}500 & 53.6\% & \$1{,}885{,}043 & 67.6\% & 20.7\% \\
+\texttt{scarce} & \$2{,}675{,}525 & 39.8\% & \$1{,}623{,}084 & 65.7\% & 39.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three findings stand out. First, the cascade is the only dependency-free
+policy that closes the gap to rollout: at $\beta=\$500$ it recovers about
+98\% of rollout profit on both stress scenarios at 40\% (\texttt{tight}) to
+56\% (\texttt{scarce}) of rollout's mean decision latency, and on
+\texttt{tight} the paired cascade$-$rollout difference is not statistically
+significant. Second, the frontier is smooth and monotone in $\beta$
+(Table~\ref{tab:frontier}): the scarcity trigger alone recovers 97.7\% on
+\texttt{tight} but only 93.7\% on \texttt{scarce}, where the surrogate's
+disagreement with rollout extends beyond the scarcity regime. Third, the
+standalone surrogate clears the best-simple bar on both scenarios but still
+leaves 6--11 points of rollout value that only the cascade recovers: a
+cheap model deployed alone under-performs precisely on the high-stakes
+capacity decisions. The Lagrangian ceiling (Table~\ref{tab:bound})
+relocates the rollout teacher from 53.6\%/39.8\% of the loose LP bound to
+67.6\%/65.7\% of a structure-respecting bound; the residual gap is
+dominated by inter-truck coordination slack, indicating that further
+methods effort should target joint-decision lookahead rather than refining
+single-tender scoring.
+
+\section{Conclusion}
+FreightBidBench provides a public, reproducible test bed for real-time
+truckload bid acceptance under operational feasibility, with hindsight
+ceilings that make achievable headroom explicit and a latency-aware cascade
+that demonstrates a non-trivial latency--profit frontier. The benchmark,
+ceilings, and versioned contracts let future methods---stronger surrogates,
+joint-decision lookahead, learned escalation---be compared without
+ambiguity over what is being measured. Extended proofs, full ablations,
+sensitivity analyses, and calibration validation appear in the full
+version.
+
+\section*{Acknowledgments}
+The author used Anthropic's Claude (Claude Opus), a large language model,
+to assist with software implementation and experiment scaffolding,
+drafting and editing of the manuscript, and literature and formatting
+support. All model designs, experiments, results, and claims were verified
+and approved by the author, who takes full responsibility for the content.
+
+\section*{Author Contributions}
+The author confirms sole responsibility for the following: study conception
+and design; implementation; data curation; analysis and interpretation of
+results; and draft manuscript preparation. The author reviewed the results
+and approved the final version of the manuscript.
+
+\section*{Declaration of Conflicting Interests}
+The author declared the following potential conflict of interest with
+respect to the research, authorship, and/or publication of this article:
+the author is employed by Bubba AI, which develops AI-based load-planning
+and carrier-operations products in the freight domain addressed by this
+paper. This study uses only public FAF and USDA data and a
+dependency-free, open-source benchmark; no proprietary data or systems were
+used, and Bubba AI had no role in the study design, analysis, or the
+decision to publish.
+
+\section*{Funding}
+The author disclosed no financial support for the research, authorship,
+and/or publication of this article.
+
+\section*{Data and Code Availability}
+Code, data-processing pipelines, and run manifests are available at
+\url{https://github.com/aswincsekar/freightbidbench}.
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}

@@ -151,6 +151,13 @@ paper-v03-pdf: paper-v03-check
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v03_benchmark_paper.tex
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v03_benchmark_paper.tex
 
+paper-trb-pdf:
+	cd papers && mkdir -p build
+	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_trb2027.tex
+	cd papers && bibtex build/freightbidbench_trb2027
+	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_trb2027.tex
+	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_trb2027.tex
+
 paper-pdf:
 	cd papers && mkdir -p build
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
