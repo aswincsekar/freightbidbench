@@ -433,7 +433,7 @@ representative +/- ${REPRESENTATIVE_CASCADE_BAND:,.0f} escalation band.
 
 ## Benchmark Notes
 
-FreightBidBench v0.2 is a public-calibrated synthetic benchmark. It is meant to
+FreightBidBench is a public-calibrated synthetic benchmark. It is meant to
 test closed-loop bid-evaluation policies under controlled stochastic freight
 conditions, not to claim calibrated production-dollar performance.
 

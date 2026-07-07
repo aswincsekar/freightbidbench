@@ -638,6 +638,7 @@ with common-random-number accept/reject branches.
 
 \subsection{Surrogate}
 
+\begin{sloppypar}
 The linear surrogate fits the rollout-label dataset
 $\{(x_i, y_i)\}_{i=1}^{N}$ where $y_i$ is the rollout teacher's expected
 incremental value for decision $i$ and $x_i$ is a feature vector
@@ -651,6 +652,7 @@ fit is a closed-form ridge regression; no third-party dependencies are
 required. A surrogate-only decision additionally consults the feasibility
 map and rejects if the copied-fleet probe fails, preventing the surrogate
 from paying gratuitous L1 penalties.
+\end{sloppypar}
 
 Features are standardized to zero mean and unit variance on the training
 labels (a feature with zero training variance is left at unit scale), and
