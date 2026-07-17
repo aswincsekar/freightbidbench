@@ -40,6 +40,7 @@ REPORT_OUT = ROOT / "reports" / "surrogate_cascade_report.md"
 TRAIN_SEED = 20260506
 EVAL_SEED = 20260507
 TARGET_SCALE = 5000.0
+DUAL_PRICE_TABLE_PATH = ROOT / "data" / "processed" / "dual_price_tables.csv"
 PREDICTION_TARGET = "rollout_incremental_value"
 CASCADE_BAND_DOLLARS = 500.0
 CASCADE_FRONTIER_BANDS = [0.0, 100.0, 250.0, 500.0, 700.0, 900.0, 1200.0]
@@ -419,6 +420,73 @@ def write_weights(model: LinearModel) -> None:
     write_csv(WEIGHTS_OUT, rows)
 
 
+_DUAL_PRICE_TABLE: dict[tuple[str, str, int], float] | None = None
+
+
+def load_dual_price_table() -> dict[tuple[str, str, int], float]:
+    """Lazy-load the (scenario, origin, hour-bucket) -> lambda table.
+
+    Produced by scripts/fit_dual_prices.py from converged Lagrangian duals.
+    Missing file yields an empty table (policy falls back to lambda = 0).
+    """
+    global _DUAL_PRICE_TABLE
+    if _DUAL_PRICE_TABLE is None:
+        table: dict[tuple[str, str, int], float] = {}
+        if DUAL_PRICE_TABLE_PATH.exists():
+            with DUAL_PRICE_TABLE_PATH.open(newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    key = (
+                        str(row["scenario"]),
+                        str(row["origin_state"]),
+                        int(row["hour_bucket"]),
+                    )
+                    table[key] = float(row["lambda_mean"])
+        _DUAL_PRICE_TABLE = table
+    return _DUAL_PRICE_TABLE
+
+
+def dual_price_lambda(scenario_name: str, origin: str, hour: float) -> float:
+    """Opportunity-cost lookup with per-origin and global fallbacks."""
+    table = load_dual_price_table()
+    hour_bucket = int(hour) % 24
+    for key in (
+        (scenario_name, origin, hour_bucket),
+        (scenario_name, origin, -1),
+        (scenario_name, "*", -1),
+    ):
+        if key in table:
+            return table[key]
+    return 0.0
+
+
+VALUE_TOGO_TABLE_PATH = ROOT / "data" / "processed" / "dual_value_togo.csv"
+_VALUE_TOGO_TABLE: dict[tuple[str, str, int], float] | None = None
+
+
+def load_value_togo_table() -> dict[tuple[str, str, int], float]:
+    """Lazy-load the aggregated W(market, hour) value-to-go table.
+
+    Produced by scripts/fit_value_togo.py from converged Lagrangian duals.
+    """
+    global _VALUE_TOGO_TABLE
+    if _VALUE_TOGO_TABLE is None:
+        table: dict[tuple[str, str, int], float] = {}
+        if VALUE_TOGO_TABLE_PATH.exists():
+            with VALUE_TOGO_TABLE_PATH.open(newline="", encoding="utf-8") as handle:
+                for row in csv.DictReader(handle):
+                    table[
+                        (str(row["scenario"]), str(row["market"]), int(row["hour"]))
+                    ] = float(row["value_togo"])
+        _VALUE_TOGO_TABLE = table
+    return _VALUE_TOGO_TABLE
+
+
+def value_togo(scenario: base.Scenario, market: str, hour: float) -> float:
+    table = load_value_togo_table()
+    clamped = max(0, min(int(scenario.horizon_hours), int(math.ceil(hour))))
+    return table.get((scenario.name, market, clamped), 0.0)
+
+
 def choose_action(
     policy_name: str,
     load: dict[str, object],
@@ -447,6 +515,43 @@ def choose_action(
             base.Policy("bid_price", 1.0, 0.0), load, state_values
         )
         return accept, score, "bid_price"
+    if policy_name == "dual_price":
+        # Lagrangian dual-price policy: accept iff the probed realized profit
+        # clears the calibrated opportunity cost of the load's slot, plus a
+        # relocation term that ramps toward the terminal fleet value as the
+        # horizon approaches (late accepts lock the truck's ending market).
+        hour = float(load["hour"])
+        assignment = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
+        if not assignment.accepted:
+            return False, -TARGET_SCALE, "dual_feasibility_guard"
+        lam = dual_price_lambda(scenario.name, str(load["origin_state"]), hour)
+        terminal_delta = state_values.get(
+            str(load["destination_state"]), 0.0
+        ) - state_values.get(str(load["origin_state"]), 0.0)
+        ramp = min(1.0, hour / float(scenario.horizon_hours))
+        reloc = base.terminal_value_weight(scenario) * terminal_delta * ramp
+        score = assignment.profit - lam + reloc
+        return score >= 0, score, "dual_price"
+    if policy_name == "dual_price_vf":
+        # Value-function dual policy: price the current load's slot with the
+        # calibrated dual and the relocation with the aggregated value-to-go
+        # difference W(dest, t_done) - W(origin, now) from the Lagrangian
+        # sub-MDP's backward recursion (fit_value_togo.py).
+        hour = float(load["hour"])
+        assignment = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
+        if not assignment.accepted:
+            return False, -TARGET_SCALE, "dual_feasibility_guard"
+        lam = dual_price_lambda(scenario.name, str(load["origin_state"]), hour)
+        done = hour + float(load["travel_hours"])
+        # Same-time positional gradient: where is the truck better off at
+        # t_done? The busy-time opportunity cost is left to lambda; using
+        # W(origin, now) instead would double-count it (the single-truck
+        # hindsight W is far too optimistic under fleet competition).
+        continuation = value_togo(
+            scenario, str(load["destination_state"]), done
+        ) - value_togo(scenario, str(load["origin_state"]), done)
+        score = assignment.profit - lam + continuation
+        return score >= 0, score, "dual_price_vf"
     if policy_name == "rollout_teacher":
         accept, incremental, _, _ = rollout.rollout_accepts(
             load, fleet, lanes, scenario, state_values, decision_index + rollout_seed_offset

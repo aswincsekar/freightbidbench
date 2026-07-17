@@ -1,0 +1,124 @@
+{
+  "comment": "v0.4 dev fleet-scaling variants of tight (Theorem B groundwork). Not part of the public contract.",
+  "default_first_seed": 20260506,
+  "source_inputs": {
+    "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
+    "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
+  },
+  "scenarios": {
+    "tight_x05": {
+      "name": "freightbidbench_tight_x05",
+      "horizon_hours": 72,
+      "loads_per_hour": 7,
+      "fleet_size": 35,
+      "base_cost_per_mile": 3.1,
+      "fixed_load_cost": 250.0,
+      "value_scale_dollars": 3000.0,
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.25,
+      "demand_wave_schedule": {
+        "type": "price_premium_piecewise",
+        "period_hours": 24,
+        "default_multiplier": 1.0,
+        "default_price_multiplier": 1.0,
+        "segments": [
+          {
+            "start_hour": 0,
+            "end_hour": 8,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          },
+          {
+            "start_hour": 8,
+            "end_hour": 16,
+            "multiplier": 1.0,
+            "price_multiplier": 1.5
+          },
+          {
+            "start_hour": 16,
+            "end_hour": 24,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          }
+        ]
+      },
+      "purpose": "Fleet-scaling cell x05: tight economics at fleet 35, 7 loads/hr."
+    },
+    "tight_x1": {
+      "name": "freightbidbench_tight_x1",
+      "horizon_hours": 72,
+      "loads_per_hour": 14,
+      "fleet_size": 70,
+      "base_cost_per_mile": 3.1,
+      "fixed_load_cost": 250.0,
+      "value_scale_dollars": 3000.0,
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.25,
+      "demand_wave_schedule": {
+        "type": "price_premium_piecewise",
+        "period_hours": 24,
+        "default_multiplier": 1.0,
+        "default_price_multiplier": 1.0,
+        "segments": [
+          {
+            "start_hour": 0,
+            "end_hour": 8,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          },
+          {
+            "start_hour": 8,
+            "end_hour": 16,
+            "multiplier": 1.0,
+            "price_multiplier": 1.5
+          },
+          {
+            "start_hour": 16,
+            "end_hour": 24,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          }
+        ]
+      },
+      "purpose": "Fleet-scaling cell x1: tight economics at fleet 70, 14 loads/hr."
+    },
+    "tight_x2": {
+      "name": "freightbidbench_tight_x2",
+      "horizon_hours": 72,
+      "loads_per_hour": 28,
+      "fleet_size": 140,
+      "base_cost_per_mile": 3.1,
+      "fixed_load_cost": 250.0,
+      "value_scale_dollars": 3000.0,
+      "service_failure_penalty_dollars": 10.0,
+      "terminal_value_weight": 0.25,
+      "demand_wave_schedule": {
+        "type": "price_premium_piecewise",
+        "period_hours": 24,
+        "default_multiplier": 1.0,
+        "default_price_multiplier": 1.0,
+        "segments": [
+          {
+            "start_hour": 0,
+            "end_hour": 8,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          },
+          {
+            "start_hour": 8,
+            "end_hour": 16,
+            "multiplier": 1.0,
+            "price_multiplier": 1.5
+          },
+          {
+            "start_hour": 16,
+            "end_hour": 24,
+            "multiplier": 1.0,
+            "price_multiplier": 1.0
+          }
+        ]
+      },
+      "purpose": "Fleet-scaling cell x2: tight economics at fleet 140, 28 loads/hr."
+    }
+  }
+}

@@ -28,8 +28,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
 import math
+import multiprocessing
 import sys
 import time
 from dataclasses import dataclass, field
@@ -285,23 +287,41 @@ class LagrangianEvaluation:
     accepted_load_ids_per_truck: list[tuple[int, ...]]
 
 
-def evaluate_lagrangian(
-    initial_fleet: dict[str, list[object]],
-    loads: list[dict[str, object]],
-    duals: dict[int, float],
+# Per-worker context for multiprocessing: the loads, terminal weight, and
+# state values are identical across trucks and iterations, so they are
+# shipped to each worker once via the Pool initializer instead of being
+# pickled per task.
+_POOL_CTX: dict[str, object] = {}
+
+
+def _pool_init(
+    sorted_loads: list[dict[str, object]],
     terminal_value_weight: float,
     state_values: dict[str, float],
-) -> LagrangianEvaluation:
-    """Evaluate L(lambda) on a single realized scenario.
+) -> None:
+    _POOL_CTX["sorted_loads"] = sorted_loads
+    _POOL_CTX["terminal_value_weight"] = terminal_value_weight
+    _POOL_CTX["state_values"] = state_values
 
-    Solves each truck's sub-MDP independently under the dual penalties,
-    sums the per-truck values plus sum_t lambda_t (the constant term from
-    the Lagrangian).
-    """
-    sorted_loads = sorted(loads, key=lambda load: float(load["hour"]))
-    per_truck_values: list[float] = []
-    accept_counts: dict[int, int] = {int(load["load_id"]): 0 for load in sorted_loads}
-    accepted_per_truck: list[tuple[int, ...]] = []
+
+def _solve_truck_task(
+    task: tuple[TruckDPState, str], duals: dict[int, float]
+) -> TruckDPState:
+    initial, truck_id = task
+    return solve_truck_sub_mdp(
+        initial,
+        _POOL_CTX["sorted_loads"],  # type: ignore[arg-type]
+        duals,
+        _POOL_CTX["terminal_value_weight"],  # type: ignore[arg-type]
+        _POOL_CTX["state_values"],  # type: ignore[arg-type]
+        truck_id,
+    )
+
+
+def _truck_tasks(
+    initial_fleet: dict[str, list[object]]
+) -> list[tuple[TruckDPState, str]]:
+    tasks: list[tuple[TruckDPState, str]] = []
     for state, trucks in initial_fleet.items():
         for truck in trucks:
             if isinstance(truck, feas.TruckState):
@@ -317,14 +337,47 @@ def evaluate_lagrangian(
                 drive_used = 0.0
                 duty_used = 0.0
                 truck_state = state
-            initial = TruckDPState(
-                location=truck_state,
-                available_time=avail_time,
-                drive_used=drive_used,
-                duty_used=duty_used,
-                value=0.0,
+            tasks.append(
+                (
+                    TruckDPState(
+                        location=truck_state,
+                        available_time=avail_time,
+                        drive_used=drive_used,
+                        duty_used=duty_used,
+                        value=0.0,
+                    ),
+                    truck_id,
+                )
             )
-            best = solve_truck_sub_mdp(
+    return tasks
+
+
+def evaluate_lagrangian(
+    initial_fleet: dict[str, list[object]],
+    loads: list[dict[str, object]],
+    duals: dict[int, float],
+    terminal_value_weight: float,
+    state_values: dict[str, float],
+    pool: object | None = None,
+) -> LagrangianEvaluation:
+    """Evaluate L(lambda) on a single realized scenario.
+
+    Solves each truck's sub-MDP independently under the dual penalties,
+    sums the per-truck values plus sum_t lambda_t (the constant term from
+    the Lagrangian). The per-truck solves are independent; when ``pool``
+    (a multiprocessing.Pool primed with ``_pool_init``) is supplied they
+    run in parallel. ``Pool.map`` preserves task order, so the float
+    reduction order matches the serial path and results are bit-identical.
+    """
+    sorted_loads = sorted(loads, key=lambda load: float(load["hour"]))
+    tasks = _truck_tasks(initial_fleet)
+    if pool is not None:
+        results = pool.map(  # type: ignore[attr-defined]
+            functools.partial(_solve_truck_task, duals=duals), tasks
+        )
+    else:
+        results = [
+            solve_truck_sub_mdp(
                 initial,
                 sorted_loads,
                 duals,
@@ -332,10 +385,16 @@ def evaluate_lagrangian(
                 state_values,
                 truck_id,
             )
-            per_truck_values.append(best.value)
-            accepted_per_truck.append(best.accepted_load_ids)
-            for load_id in best.accepted_load_ids:
-                accept_counts[load_id] = accept_counts.get(load_id, 0) + 1
+            for initial, truck_id in tasks
+        ]
+    per_truck_values: list[float] = []
+    accept_counts: dict[int, int] = {int(load["load_id"]): 0 for load in sorted_loads}
+    accepted_per_truck: list[tuple[int, ...]] = []
+    for best in results:
+        per_truck_values.append(best.value)
+        accepted_per_truck.append(best.accepted_load_ids)
+        for load_id in best.accepted_load_ids:
+            accept_counts[load_id] = accept_counts.get(load_id, 0) + 1
     dual_constant = sum(duals.values())
     bound = dual_constant + sum(per_truck_values)
     return LagrangianEvaluation(
@@ -358,6 +417,17 @@ class DualTrajectoryRecord:
     overuse_count: int
     average_dual: float
     elapsed_seconds: float
+
+
+def write_duals_checkpoint(path: Path, duals: dict[int, float]) -> None:
+    """Atomically write duals in the lagrangian_dual_prices.csv format."""
+    tmp = path.with_suffix(".tmp")
+    with tmp.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["load_id", "lambda"])
+        for load_id in sorted(duals):
+            writer.writerow([load_id, f"{duals[load_id]:.4f}"])
+    tmp.replace(path)
 
 
 def load_initial_duals_from_csv(
@@ -390,6 +460,8 @@ def subgradient_dual_loop(
     initial_duals: dict[int, float] | None = None,
     iter_offset: int = 0,
     verbose: bool = False,
+    workers: int = 1,
+    checkpoint_dir: Path | None = None,
 ) -> tuple[dict[int, float], LagrangianEvaluation, list[DualTrajectoryRecord]]:
     """Subgradient ascent on the dual L(lambda).
 
@@ -417,36 +489,65 @@ def subgradient_dual_loop(
     best_duals: dict[int, float] = dict(duals)
     best_eval: LagrangianEvaluation | None = None
     start = time.perf_counter()
-    for n in range(1, iterations + 1):
-        evaluation = evaluate_lagrangian(
-            initial_fleet, loads, duals, terminal_value_weight, state_values
+    pool = None
+    if workers > 1:
+        sorted_loads = sorted(loads, key=lambda load: float(load["hour"]))
+        pool = multiprocessing.Pool(
+            workers,
+            initializer=_pool_init,
+            initargs=(sorted_loads, terminal_value_weight, state_values),
         )
-        overuse_count = sum(1 for v in evaluation.accept_counts.values() if v > 1)
-        avg_dual = sum(duals.values()) / max(1, len(duals))
-        record = DualTrajectoryRecord(
-            iteration=n,
-            bound=evaluation.bound,
-            overuse_count=overuse_count,
-            average_dual=avg_dual,
-            elapsed_seconds=time.perf_counter() - start,
-        )
-        trajectory.append(record)
-        if verbose:
-            print(
-                f"iter {n:3d} | bound = {evaluation.bound:>14,.2f} | "
-                f"overuse_count = {overuse_count:4d} | "
-                f"avg_lambda = {avg_dual:>8,.2f} | "
-                f"elapsed = {record.elapsed_seconds:.1f}s"
+    try:
+        for n in range(1, iterations + 1):
+            evaluation = evaluate_lagrangian(
+                initial_fleet,
+                loads,
+                duals,
+                terminal_value_weight,
+                state_values,
+                pool=pool,
             )
-        if evaluation.bound < best_bound:
-            best_bound = evaluation.bound
-            best_duals = dict(duals)
-            best_eval = evaluation
-        # Subgradient step.
-        step = step_scale / math.sqrt(n + iter_offset)
-        for load_id, count in evaluation.accept_counts.items():
-            slack = count - 1
-            duals[load_id] = max(0.0, duals[load_id] + step * slack)
+            overuse_count = sum(1 for v in evaluation.accept_counts.values() if v > 1)
+            avg_dual = sum(duals.values()) / max(1, len(duals))
+            record = DualTrajectoryRecord(
+                iteration=n,
+                bound=evaluation.bound,
+                overuse_count=overuse_count,
+                average_dual=avg_dual,
+                elapsed_seconds=time.perf_counter() - start,
+            )
+            trajectory.append(record)
+            if verbose:
+                print(
+                    f"iter {n:3d} | bound = {evaluation.bound:>14,.2f} | "
+                    f"overuse_count = {overuse_count:4d} | "
+                    f"avg_lambda = {avg_dual:>8,.2f} | "
+                    f"elapsed = {record.elapsed_seconds:.1f}s"
+                )
+            if evaluation.bound < best_bound:
+                best_bound = evaluation.bound
+                best_duals = dict(duals)
+                best_eval = evaluation
+            # Subgradient step.
+            step = step_scale / math.sqrt(n + iter_offset)
+            for load_id, count in evaluation.accept_counts.items():
+                slack = count - 1
+                duals[load_id] = max(0.0, duals[load_id] + step * slack)
+            # Checkpoint after every iteration so an interrupted run can be
+            # resumed with --initial-duals-csv/--iter-offset instead of
+            # losing all progress (post-step duals; best-so-far separately).
+            if checkpoint_dir is not None:
+                write_duals_checkpoint(
+                    checkpoint_dir / "lagrangian_duals_checkpoint.csv", duals
+                )
+                write_duals_checkpoint(
+                    checkpoint_dir / "lagrangian_best_duals_checkpoint.csv",
+                    best_duals,
+                )
+    finally:
+        if pool is not None:
+            pool.close()
+            pool.join()
     assert best_eval is not None
     return best_duals, best_eval, trajectory
 
@@ -622,6 +723,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Rollout teacher realized profit for the same scenario/seed; "
         "used to validate the upper-bound property (bound >= rollout).",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallelize per-truck sub-MDP solves across this many "
+        "processes (stdlib multiprocessing). Results are bit-identical "
+        "to the serial path; default 1.",
+    )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     return parser
@@ -677,6 +786,7 @@ def main(argv: list[str] | None = None) -> None:
         state_values,
     )
     initial_bound = initial_eval.bound
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     best_duals, best_eval, trajectory = subgradient_dual_loop(
         initial_fleet,
         loads,
@@ -687,9 +797,9 @@ def main(argv: list[str] | None = None) -> None:
         initial_duals=initial_duals,
         iter_offset=args.iter_offset,
         verbose=args.verbose,
+        workers=args.workers,
+        checkpoint_dir=args.output_dir,
     )
-
-    args.output_dir.mkdir(parents=True, exist_ok=True)
     summary_rows = [
         {
             "scenario": args.scenario,
