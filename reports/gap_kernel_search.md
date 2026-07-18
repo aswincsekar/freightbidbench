@@ -20,4 +20,12 @@ loads (id, t, origin->dest, tt, reward):
   L4: t=4 M1->M0 tt=1 r=7
   L5: t=5 M2->M1 tt=1 r=14
 ```
+Fractional certificate (truck, chain loads, value, weight):
+```
+  T0 {L4} val=7 x=1/2
+  T1 {L2,L3} val=20 x=1/2
+  T1 {L5} val=14 x=1/2
+  T2 {L3,L5} val=28 x=1/2
+  T2 {L1,L4} val=20 x=1/2
+```
 

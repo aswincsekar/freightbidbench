@@ -77,5 +77,6 @@ Use the GitHub release tag `v0.3.0` for exact reproduction:
 git checkout v0.3.0
 ```
 
-After the arXiv version is live, cite the arXiv identifier and this release tag
-together. Repository citation metadata is in `CITATION.cff`.
+Cite the arXiv preprint (arXiv:2607.07343,
+<https://arxiv.org/abs/2607.07343>) together with this release tag.
+Repository citation metadata is in `CITATION.cff`.

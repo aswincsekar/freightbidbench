@@ -146,6 +146,57 @@ class FreightBidBenchCliTests(unittest.TestCase):
                 },
             )
 
+    def test_v04_config_adds_dual_price_policies(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "freightbidbench_v04_smoke"
+            command = [
+                sys.executable,
+                "scripts/run_freightbidbench.py",
+                "--config",
+                "configs/freightbidbench_v04_scenarios.json",
+                "--preset",
+                "smoke",
+                "--seed-count",
+                "1",
+                "--label-limit",
+                "5",
+                "--eval-load-limit",
+                "10",
+                "--cascade-bands",
+                "0",
+                "--output-dir",
+                str(output_dir),
+            ]
+            subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+
+            manifest_path = output_dir / "freightbidbench_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["benchmark_version"], "freightbidbench-v0.4-dev")
+            self.assertEqual(manifest["scenario_config_version"], "scenario-v0.3.2")
+            self.assertEqual(manifest["policy_set_version"], "policy-set-v0.4.0")
+            self.assertEqual(
+                manifest["policies"],
+                [
+                    "reject_all",
+                    "accept_all_feasible",
+                    "myopic_margin",
+                    "bid_price",
+                    "surrogate_linear",
+                    "dual_price",
+                    "dual_price_vf",
+                    "rollout_teacher",
+                ],
+            )
+            self.assertEqual(
+                manifest["row_counts"],
+                {
+                    "policy_runs": 9,
+                    "static_fit": 1,
+                    "policy_summary": 9,
+                    "frontier_summary": 1,
+                },
+            )
+
     def test_explicit_zero_seed_count_is_rejected(self):
         command = [
             sys.executable,

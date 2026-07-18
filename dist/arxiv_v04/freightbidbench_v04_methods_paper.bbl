@@ -1,0 +1,133 @@
+\begin{thebibliography}{19}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Adelman(2007)]{adelman2007dynamic}
+Daniel Adelman.
+\newblock Dynamic bid prices in revenue management.
+\newblock \emph{Operations Research}, 55\penalty0 (4):\penalty0 647--661, 2007.
+\newblock \doi{10.1287/opre.1060.0368}.
+
+\bibitem[Adelman and Mersereau(2008)]{adelman2008relaxations}
+Daniel Adelman and Adam~J. Mersereau.
+\newblock Relaxations of weakly coupled stochastic dynamic programs.
+\newblock \emph{Operations Research}, 56\penalty0 (3):\penalty0 712--727, 2008.
+\newblock \doi{10.1287/opre.1070.0445}.
+
+\bibitem[Balseiro et~al.(2020)Balseiro, Lu, and Mirrokni]{balseiro2020dual}
+Santiago~R. Balseiro, Haihao Lu, and Vahab Mirrokni.
+\newblock Dual mirror descent for online allocation problems.
+\newblock In \emph{Proceedings of the 37th International Conference on Machine
+  Learning (ICML), PMLR 119}, 2020.
+
+\bibitem[Bertsekas et~al.(1997)Bertsekas, Tsitsiklis, and
+  Wu]{bertsekas1997rollout}
+Dimitri~P. Bertsekas, John~N. Tsitsiklis, and Cynara Wu.
+\newblock Rollout algorithms for combinatorial optimization.
+\newblock \emph{Journal of Heuristics}, 3\penalty0 (3):\penalty0 245--262,
+  1997.
+\newblock \doi{10.1023/A:1009635226865}.
+
+\bibitem[Bertsimas and Tsitsiklis(1997)]{bertsimas1997introduction}
+Dimitris Bertsimas and John~N. Tsitsiklis.
+\newblock \emph{Introduction to Linear Optimization}.
+\newblock Athena Scientific, 1997.
+
+\bibitem[Brown and Zhang(2023)]{brownzhang2023strength}
+David~B. Brown and Jingwei Zhang.
+\newblock On the strength of relaxations of weakly coupled stochastic dynamic
+  programs.
+\newblock \emph{Operations Research}, 2023.
+\newblock \doi{10.1287/opre.2022.2287}.
+
+\bibitem[Brown et~al.(2010)Brown, Smith, and Sun]{brown2010information}
+David~B. Brown, James~E. Smith, and Peng Sun.
+\newblock Information relaxations and duality in stochastic dynamic programs.
+\newblock \emph{Operations Research}, 58\penalty0 (4):\penalty0 785--801, 2010.
+\newblock \doi{10.1287/opre.1090.0796}.
+
+\bibitem[Chandrasekaran(2026)]{chandrasekaran2026freightbidbench}
+Aswin Chandrasekaran.
+\newblock Latency-aware bid acceptance under operational feasibility: A public
+  benchmark with hindsight ceilings.
+\newblock arXiv preprint arXiv:2607.07343, 2026.
+
+\bibitem[Gallego and van Ryzin(1997)]{gallego1997network}
+Guillermo Gallego and Garrett van Ryzin.
+\newblock A multiproduct dynamic pricing problem and its applications to
+  network yield management.
+\newblock \emph{Operations Research}, 45\penalty0 (1):\penalty0 24--41, 1997.
+
+\bibitem[Geoffrion(1974)]{geoffrion1974lagrangean}
+Arthur~M. Geoffrion.
+\newblock Lagrangean relaxation for integer programming.
+\newblock \emph{Mathematical Programming Study}, 2:\penalty0 82--114, 1974.
+
+\bibitem[Goodson et~al.(2017)Goodson, Thomas, and Ohlmann]{goodson2017rollout}
+Justin~C. Goodson, Barrett~W. Thomas, and Jeffrey~W. Ohlmann.
+\newblock A rollout algorithm framework for heuristic solutions to
+  finite-horizon stochastic dynamic programs.
+\newblock \emph{European Journal of Operational Research}, 258\penalty0
+  (1):\penalty0 216--229, 2017.
+\newblock \doi{10.1016/j.ejor.2016.09.040}.
+
+\bibitem[Hawkins(2003)]{hawkins2003lagrangian}
+Jeffrey~Thomas Hawkins.
+\newblock \emph{A Lagrangian Decomposition Approach to Weakly Coupled Dynamic
+  Optimization Problems and its Applications}.
+\newblock PhD thesis, Massachusetts Institute of Technology, 2003.
+
+\bibitem[Powell et~al.(2012)Powell, Sim{\~a}o, and
+  Bouzaiene-Ayari]{powell2007stochastic}
+Warren~B. Powell, Hugo~P. Sim{\~a}o, and Belgacem Bouzaiene-Ayari.
+\newblock Approximate dynamic programming in transportation and logistics: A
+  unified framework.
+\newblock \emph{EURO Journal on Transportation and Logistics}, 1\penalty0
+  (3):\penalty0 237--284, 2012.
+\newblock \doi{10.1007/s13676-012-0015-8}.
+
+\bibitem[Sezener and Dayan(2020)]{sezener2020voc}
+Eren Sezener and Peter Dayan.
+\newblock Static and dynamic values of computation in mcts.
+\newblock In \emph{Proceedings of the 36th Conference on Uncertainty in
+  Artificial Intelligence (UAI), PMLR 124}, 2020.
+
+\bibitem[Sim{\~a}o et~al.(2009)Sim{\~a}o, Day, George, Gifford, Nienow, and
+  Powell]{simao2009adp}
+Hugo~P. Sim{\~a}o, Joseph Day, Abraham~P. George, Ted Gifford, John Nienow, and
+  Warren~B. Powell.
+\newblock An approximate dynamic programming algorithm for large-scale fleet
+  management: A case application.
+\newblock \emph{Transportation Science}, 43\penalty0 (2):\penalty0 178--197,
+  2009.
+\newblock \doi{10.1287/trsc.1080.0238}.
+
+\bibitem[Talluri and van Ryzin(1998)]{talluri1998bidprice}
+Kalyan~T. Talluri and Garrett van Ryzin.
+\newblock An analysis of bid-price controls for network revenue management.
+\newblock \emph{Management Science}, 44\penalty0 (11):\penalty0 1577--1593,
+  1998.
+
+\bibitem[Topaloglu(2009)]{topaloglu2009lagrangian}
+Huseyin Topaloglu.
+\newblock Using lagrangian relaxation to compute capacity-dependent bid prices
+  in network revenue management.
+\newblock \emph{Operations Research}, 57\penalty0 (3):\penalty0 637--649, 2009.
+\newblock \doi{10.1287/opre.1080.0641}.
+
+\bibitem[Zhang and Cheung(2022)]{zhangcheung2022reusable}
+Xilin Zhang and Wang~Chi Cheung.
+\newblock Online resource allocation for reusable resources.
+\newblock arXiv:2212.02855, 2022.
+
+\bibitem[Zhang and Cheung(2025)]{zhangcheung2025nonstationary}
+Xilin Zhang and Wang~Chi Cheung.
+\newblock Online allocation of reusable resources in nonstationary
+  environments.
+\newblock \emph{Mathematics of Operations Research}, 2025.
+\newblock \doi{10.1287/moor.2023.0250}.
+
+\end{thebibliography}

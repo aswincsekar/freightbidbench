@@ -164,3 +164,10 @@ paper-pdf:
 	cd papers && bibtex build/freightbidbench_v02_benchmark_paper
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
+
+paper-v04-pdf:
+	cd papers && mkdir -p build
+	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v04_methods_paper.tex
+	cd papers && bibtex build/freightbidbench_v04_methods_paper
+	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v04_methods_paper.tex
+	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v04_methods_paper.tex

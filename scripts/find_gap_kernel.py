@@ -110,7 +110,9 @@ def truck_chains(truck: Truck, loads: tuple[Load, ...]) -> list[tuple[frozenset[
 # ----------------------------------------------------------------------------
 
 
-def simplex_max(c: list[Fraction], a: list[list[Fraction]], b: list[Fraction]) -> Fraction:
+def simplex_max(
+    c: list[Fraction], a: list[list[Fraction]], b: list[Fraction]
+) -> tuple[Fraction, list[Fraction]]:
     m, n = len(a), len(c)
     # Tableau: rows 0..m-1 constraints (with slacks), row m objective.
     tab = [row[:] + [Fraction(int(i == j)) for j in range(m)] + [b[i]] for i, row in enumerate(a)]
@@ -121,7 +123,11 @@ def simplex_max(c: list[Fraction], a: list[list[Fraction]], b: list[Fraction]) -
         # Bland: entering = smallest index with negative reduced cost.
         enter = next((j for j in range(total) if tab[m][j] < 0), None)
         if enter is None:
-            return tab[m][total]
+            x = [Fraction(0)] * n
+            for i, bi in enumerate(basis):
+                if bi < n:
+                    x[bi] = tab[i][total]
+            return tab[m][total], x
         # Ratio test (Bland ties by smallest basis index).
         leave, best = None, None
         for i in range(m):
@@ -140,13 +146,15 @@ def simplex_max(c: list[Fraction], a: list[list[Fraction]], b: list[Fraction]) -
         basis[leave] = enter
 
 
-def chain_packing_lp(trucks: tuple[Truck, ...], loads: tuple[Load, ...]) -> Fraction:
+def chain_packing_lp(
+    trucks: tuple[Truck, ...], loads: tuple[Load, ...]
+) -> tuple[Fraction, list[tuple[int, list[int], int, Fraction]]]:
     cols: list[tuple[int, frozenset[int], int]] = []
     for tr in trucks:
         for loadset, value in truck_chains(tr, loads):
             cols.append((tr.truck_id, loadset, value))
     if not cols:
-        return Fraction(0)
+        return Fraction(0), []
     c = [Fraction(value) for _, _, value in cols]
     a: list[list[Fraction]] = []
     b: list[Fraction] = []
@@ -156,7 +164,13 @@ def chain_packing_lp(trucks: tuple[Truck, ...], loads: tuple[Load, ...]) -> Frac
     for tr in trucks:  # each truck runs at most one chain
         a.append([Fraction(int(tid == tr.truck_id)) for tid, _, _ in cols])
         b.append(Fraction(1))
-    return simplex_max(c, a, b)
+    value, x = simplex_max(c, a, b)
+    solution = [
+        (cols[j][0], sorted(cols[j][1]), cols[j][2], x[j])
+        for j in range(len(cols))
+        if x[j] != 0
+    ]
+    return value, solution
 
 
 # ----------------------------------------------------------------------------
@@ -209,11 +223,11 @@ def main() -> None:
     for trial in range(args.instances):
         trucks, loads = sample_instance(rng)
         v_star = joint_optimum(trucks, loads)
-        lp = chain_packing_lp(trucks, loads)
+        lp, sol = chain_packing_lp(trucks, loads)
         gap = lp - v_star
         if gap > 0:
             rel = gap / max(1, v_star)
-            found.append((rel, trial, trucks, loads, v_star, lp))
+            found.append((rel, trial, trucks, loads, v_star, lp, sol))
     found.sort(key=lambda item: -item[0])
 
     lines = [
@@ -228,13 +242,17 @@ def main() -> None:
         "V* by exact joint enumeration. gap = LP - V* in exact rationals.",
         "",
     ]
-    for rel, trial, trucks, loads, v_star, lp in found[: args.top]:
+    for rel, trial, trucks, loads, v_star, lp, sol in found[: args.top]:
         lines += [
             f"## Kernel (trial {trial}): V* = {v_star}, LP = {lp} "
             f"(= {float(lp):.3f}), gap = {lp - v_star} "
             f"({100 * float(rel):.1f}% of V*)",
             "```",
             describe(trucks, loads),
+            "```",
+            "Fractional certificate (truck, chain loads, value, weight):",
+            "```",
+            *[f"  T{t} {{{','.join(f'L{i}' for i in s)}}} val={v} x={w}" for t, s, v, w in sol],
             "```",
             "",
         ]

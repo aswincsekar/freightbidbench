@@ -155,3 +155,41 @@ precisely (degenerate fluid duals at ρ = 1).
 Risk state after this note: **B(ii) LOW (existence done, write-up
 pending; density refinement MEDIUM). B(i) subcritical MEDIUM; critical
 OPEN.**
+
+## UPDATE (2026-07-18): B(i) subcritical drafted; B(ii) written up
+
+- B(ii) is now a proven theorem in the draft (Lemmas B1–B2 + kernel K1
+  with explicit half-integral certificate; γ = 7/6).
+- B(i) subcritical is DRAFTED in the methods paper §5: fluid LP, Lemma
+  B3 (idle potentials are flat ⇒ the same-time gradient rule IS fluid
+  complementary slackness under subcriticality — this upgrades Lemma A3
+  and explains the naive rule's collapse as a misapplied
+  binding-capacity correction), Lemma B4 (dual stability — statement
+  with proof deferred, standard-but-long LP perturbation), and the
+  assembled theorem with assumptions (A1) subcritical idle mass, (A2)
+  clock slack (regeneration folded into the regime), (A3) dual
+  nondegeneracy, (A4) boundedness.
+- Remaining technical debt, in order: (1) Lemma B4 full proof
+  (bookkeeping); (2) relaxing (A2) via regeneration; (3) the critical
+  regime (stated as open, with the B(ii) kernel as the obstruction
+  witness); (4) B(ii) density-growth refinement (computational attack
+  on a parametric kernel family).
+
+Risk state now: **B(ii) DONE. B(i) subcritical LOW-MEDIUM (assembly
+proof written; one long standard lemma deferred). B(i) critical OPEN
+(by design, stated honestly).**
+
+## UPDATE (2026-07-18, later): Lemma B4 proven — theory core complete
+
+Full three-step proof written into §5.2: (1) cell-level basis stability
+(duals are basis objects; exact fluid potentials w.h.p., O_p(K^{-1/2})
+from objective noise only); (2) disaggregation via per-load CS
+(λ̂ → E[(r − θ)_+], the fluid rent function); (3) chain-vs-flow duals
+coincide under (A2) slack budgets. Bonus: basis stability THEORETICALLY
+EXPLAINS the empirical portability finding (identical decisions across
+sample paths = shared optimal basis), and predicts where portability
+fails (fluid basis switches) — a testable prediction.
+
+**Risk state: B(ii) DONE. B(i) subcritical DONE (draft-complete proofs).
+B(i) critical OPEN by design. Remaining work is writing/integration,
+not mathematics.**
