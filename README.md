@@ -77,6 +77,10 @@ Use the GitHub release tag `v0.3.0` for exact reproduction:
 git checkout v0.3.0
 ```
 
-Cite the arXiv preprint (arXiv:2607.07343,
-<https://arxiv.org/abs/2607.07343>) together with this release tag.
+Cite the arXiv preprints together with this release tag:
+
+- Benchmark (v0.3): arXiv:2607.07343, <https://arxiv.org/abs/2607.07343>
+- Certified dual-price methods (v0.4): arXiv:2607.16891,
+  <https://arxiv.org/abs/2607.16891>
+
 Repository citation metadata is in `CITATION.cff`.

@@ -7,7 +7,7 @@ filled in; items needing your action are marked `<FILL>`.
 Public Benchmark with Hindsight Ceilings
 
 **Author:** Aswin Chandrasekaran, Bubba AI — aswin@bubba.ai
-(corresponding author). `<FILL: city, country for the affiliation; ORCID if you have one>`
+(corresponding author). Affiliation: Bubba AI, Pune, India 411058. No ORCID.
 
 ---
 
@@ -55,10 +55,11 @@ This exact statement is also included in the manuscript (Section
 ## Data Availability Statement
 
 > All code, public data-processing pipelines, and run manifests are openly
-> available at https://github.com/aswincsekar/freightbidbench (archived at
-> Zenodo, DOI: `<FILL after Zenodo deposit>`). No proprietary data were
-> used; all inputs derive from public Freight Analysis Framework (FAF) and
-> USDA Agricultural Marketing Service sources.
+> available at https://github.com/aswincsekar/freightbidbench (release tag
+> v0.3.0; preprint arXiv:2607.07343). No proprietary data were used; all
+> inputs derive from public Freight Analysis Framework (FAF) and USDA
+> Agricultural Marketing Service sources. (Optional strengthener: archive
+> the release on Zenodo and add the DOI here.)
 
 ## Funding
 
