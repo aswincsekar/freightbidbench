@@ -58,7 +58,8 @@
 \RequirePackage[tiny, rm, pagestyles]{titlesec}
 % Page headers
 \newpagestyle{main}{
-\sethead{\@AuthorHeaders}{}{\thepage}
+\sethead{\@AuthorHeaders}{}{}
+\setfoot{}{\thepage}{}
 }
 \pagestyle{main}
 % Line spacing: 12pt before section titles

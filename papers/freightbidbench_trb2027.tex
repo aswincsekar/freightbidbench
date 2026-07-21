@@ -10,12 +10,13 @@ Feasibility: A Public Benchmark with Hindsight Ceilings}
 \AuthorHeaders{Chandrasekaran}
 \author{%
 Aswin Chandrasekaran*\\
+Cofounder and CTO\\
 Bubba AI\\
 Pune, India 411058\\
 Email: aswin@bubba.ai\\[6pt]
 *Corresponding Author%
 }
-\date{August 1, 2026}
+\date{July 21, 2026}
 
 % Current TRB sample lists total pages on the title page (not a word count).
 % Set textwords to suppress the class's texcount call (needs no shell-escape),
@@ -44,8 +45,8 @@ hindsight ceilings---an exact small-prefix dynamic program and a
 Lagrangian-per-truck information-relaxation bound---and evaluate a
 surrogate-to-rollout cascade across ten paired seeds with bootstrap
 confidence intervals.
-\textbf{Findings:} The Lagrangian bound is 20.7\% tighter than an LP
-relaxation on a tight-capacity scenario and 39.3\% tighter on a
+\textbf{Findings:} The Lagrangian bound is 20.7\% tighter than a
+linear-programming relaxation on a tight-capacity scenario and 39.3\% tighter on a
 scarce-capacity scenario, relocating the rollout teacher to 66--68\% of a
 structure-respecting ceiling. The cascade recovers roughly 98\% of rollout
 profit at 40--56\% of its mean decision latency and is statistically
@@ -57,12 +58,6 @@ it with a structure-respecting hindsight ceiling.
 hidden linear cost; a cheap model should be deployed with selective
 escalation of high-stakes capacity decisions; and the remaining headroom
 lies in cross-truck coordination rather than single-tender scoring.
-
-\vspace{12pt}
-\noindent\textit{Keywords}: truckload bid acceptance, closed-loop
-stochastic optimization, approximate dynamic programming,
-information-relaxation bounds, latency-aware policy cascade, public
-benchmark.
 
 \newpage
 
@@ -357,7 +352,7 @@ and/or publication of this article.
 Code, data-processing pipelines, and run manifests are available at
 \url{https://github.com/aswincsekar/freightbidbench}.
 
-\bibliographystyle{apalike}
+\bibliographystyle{trbchicago}
 \bibliography{references}
 
 \end{document}
