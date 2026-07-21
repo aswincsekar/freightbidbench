@@ -1,78 +1,55 @@
-# Cover Letter — FreightBidBench v0.3
+# Cover Letter — FreightBidBench v0.3 (Computers & Operations Research)
+
+Submitted PDF built at `papers/build/cover_letter_compor.pdf` (source:
+`papers/build/cover_letter_compor.tex`).
 
 **To:** The Editors, *Computers & Operations Research*
 **Re:** Submission of an original research article
 
 Dear Editors,
 
-Please consider our manuscript, **"Latency-Aware Bid Acceptance under
-Operational Feasibility: A Public Benchmark with Hindsight Ceilings,"**
-for publication in *Computers & Operations Research*.
+I would like to submit my manuscript "Latency-Aware Bid Acceptance under
+Operational Feasibility: A Public Benchmark with Hindsight Ceilings" for
+consideration in *Computers & Operations Research*.
 
-**What the paper contributes.** Online truckload bid acceptance — a
-carrier or broker deciding, in seconds, whether to accept each tendered
-load under closed-loop fleet state — has lacked a public, reproducible
-benchmark: existing routing benchmarks are static, and dynamic-fleet
-studies rely on private operator data. We contribute:
+The problem is simple to state: a truckload carrier or broker receives a
+load tender and has seconds to accept or reject it. The right answer
+depends on where the fleet is, how much drive time each driver has left,
+and whether the appointment windows can actually be met. There has been
+no public, reproducible benchmark for this closed-loop problem — routing
+benchmarks are static, and dynamic-fleet studies run on private operator
+data.
 
-1. **A public-calibrated, dependency-free, closed-loop benchmark**
-   (FreightBidBench v0.3) in which operational feasibility (pickup reach,
-   appointment windows, simplified HOS, stochastic yard delays) and
-   economics (service-failure penalty, terminal fleet value, temporal
-   price-premium window) are explicit, versioned, and reproducible from
-   public FAF and USDA data. Calibration is validated against those
-   sources in an appendix, not merely asserted.
+The paper contributes three things. First, FreightBidBench: a closed-loop
+benchmark calibrated entirely from public FAF and USDA data, with
+operational feasibility and economics inside the reward, and
+dependency-free — every result reproduces from the Python standard
+library. Second, hindsight ceilings: a Lagrangian-per-truck
+information-relaxation bound that is 20.7–39.3% tighter than an LP
+relaxation, so policies are measured against a meaningful ceiling rather
+than only against a heuristic teacher. Third, a latency-aware
+surrogate-to-rollout cascade that recovers about 98% of rollout profit at
+40–56% of its decision latency, evaluated across paired seeds with
+bootstrap confidence intervals.
 
-2. **Two full-horizon hindsight ceilings** — a simple LP-style relaxation
-   and a tighter Lagrangian-per-truck information relaxation that dualizes
-   only the cross-truck assignment constraint. The Lagrangian bound is
-   20.7% tighter on `tight` and 39.3% tighter on `scarce`, relocating the
-   rollout teacher from ~40–54% to ~66–68% of the ceiling and honestly
-   characterizing the methodological headroom.
+I believe this fits the journal well: an OR decision problem paired with
+a computational artifact, where the code, manifests, and every table in
+the paper regenerate from documented commands at
+github.com/aswincsekar/freightbidbench.
 
-3. **A latency-aware surrogate→rollout cascade** — a cheap stdlib
-   surrogate that escalates only uncertain or high-stakes (scarce-capacity)
-   decisions to an expensive rollout teacher. Across ten paired seeds with
-   bootstrap confidence intervals, the cascade recovers ~98% of rollout
-   profit at 40–56% of its latency and is statistically indistinguishable
-   from rollout on `tight`.
+The manuscript is original and is not under review anywhere else. It is
+posted as a preprint (arXiv:2607.07343). One disclosure I want to make up
+front: I am Cofounder and CTO of Bubba AI, which builds AI-based
+load-planning products in this domain. The study uses only public data
+and open-source code, and Bubba AI had no role in the study design,
+analysis, or the decision to publish; the full statement is in the
+manuscript's Declaration of Competing Interest.
 
-**Fit with the journal.** The paper sits squarely in *Computers &
-Operations Research*: it pairs an OR decision problem (closed-loop
-stochastic control for fleet bid acceptance) with a computational
-contribution (the dependency-free benchmark, the hindsight solvers, and
-the latency–profit cascade). All results reproduce from the Python
-standard library; the artifact, manifests, and build are public.
-
-**Originality and prior dissemination.** This manuscript is original, is
-not under review elsewhere, and has not been published previously. It
-builds on the earlier v0.2.1 benchmark release (a standalone artifact
-without the methods claims); the present paper is the first to report the
-v0.3 economics, the hindsight ceilings, and the cascade results.
-
-**Competing interest, disclosed up front.** I am employed by Bubba AI,
-which develops AI-based load-planning products in the freight domain this
-paper studies. In the interest of transparency I note this here and in the
-manuscript's Declaration of Competing Interest. The work relies solely on
-public FAF and USDA data and a dependency-free, open-source benchmark; no
-proprietary data or systems were used, and the benchmark and all results
-are fully reproducible independently of any commercial system.
-
-**Data and code availability.** All code, data-processing pipelines, and
-run manifests are publicly available; every table in the paper is
-regenerated by the documented commands in Appendix A. The manuscript is
-posted as preprint arXiv:2607.07343.
-
-We believe the benchmark will be of lasting use to the dynamic
-fleet-management and stochastic-routing communities, and we thank you for
-considering it.
+Thank you for considering it.
 
 Sincerely,
 
 Aswin Chandrasekaran
-Bubba AI
+Cofounder and CTO, Bubba AI
+Pune, India
 aswin@bubba.ai
-
----
-
-*Fallback venue if out of scope here: Transportation Research Part E.*
