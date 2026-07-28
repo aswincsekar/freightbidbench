@@ -47,6 +47,27 @@ make paper-v03-pdf
 The v0.2.1 release remains available for historical comparison under
 `benchmark_runs/paper_v02/` (git tag `v0.2.1`).
 
+## Reproduce v0.4 (certified dual-price methods)
+
+The v0.4 methods paper (arXiv:2607.16891) adds the `dual_price` and
+`dual_price_vf` policies, the Lagrangian dual-price fitting pipeline,
+and exact-certificate kernel search. Headline commands:
+
+```bash
+scripts/run_30seed_program.sh
+```
+
+```bash
+python3 scripts/run_lagrangian_bound.py --workers 4
+```
+
+Price/value tables come from `scripts/fit_dual_prices.py` and
+`scripts/fit_value_togo.py`; scaling cells from
+`configs/freightbidbench_v04_dev_scaling.json`; kernel search from
+`scripts/find_gap_kernel.py`. The public v0.4 contract is
+`configs/freightbidbench_v04_scenarios.json` (`policy-set-v0.4.0`);
+artifacts live under `benchmark_runs/v04_dev/`.
+
 ## Main Artifacts
 
 | Path | Purpose |
@@ -71,16 +92,15 @@ licensed under CC BY 4.0; see `LICENSE-DATA`.
 
 ## Citation
 
-Use the GitHub release tag `v0.3.0` for exact reproduction:
+Check out the release tag matching the paper you are reproducing:
+
+- Benchmark (v0.3): arXiv:2607.07343,
+  <https://arxiv.org/abs/2607.07343> — tag `v0.3.0`
+- Certified dual-price methods (v0.4): arXiv:2607.16891,
+  <https://arxiv.org/abs/2607.16891> — tag `v0.4.0`
 
 ```bash
-git checkout v0.3.0
+git checkout v0.4.0
 ```
-
-Cite the arXiv preprints together with this release tag:
-
-- Benchmark (v0.3): arXiv:2607.07343, <https://arxiv.org/abs/2607.07343>
-- Certified dual-price methods (v0.4): arXiv:2607.16891,
-  <https://arxiv.org/abs/2607.16891>
 
 Repository citation metadata is in `CITATION.cff`.
