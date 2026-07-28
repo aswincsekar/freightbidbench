@@ -1,4 +1,4 @@
-\begin{thebibliography}{19}
+\begin{thebibliography}{21}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -54,6 +54,12 @@ Aswin Chandrasekaran.
 \newblock Latency-aware bid acceptance under operational feasibility: A public
   benchmark with hindsight ceilings.
 \newblock arXiv preprint arXiv:2607.07343, 2026.
+
+\bibitem[Freedman(1975)]{freedman1975tail}
+David~A. Freedman.
+\newblock On tail probabilities for martingales.
+\newblock \emph{The Annals of Probability}, 3\penalty0 (1):\penalty0 100--118,
+  1975.
 
 \bibitem[Gallego and van Ryzin(1997)]{gallego1997network}
 Guillermo Gallego and Garrett van Ryzin.
@@ -117,6 +123,13 @@ Huseyin Topaloglu.
   in network revenue management.
 \newblock \emph{Operations Research}, 57\penalty0 (3):\penalty0 637--649, 2009.
 \newblock \doi{10.1287/opre.1080.0641}.
+
+\bibitem[van~de Geer(1995)]{vandegeer1995exponential}
+Sara~A. van~de Geer.
+\newblock Exponential inequalities for martingales, with application to maximum
+  likelihood estimation for counting processes.
+\newblock \emph{The Annals of Statistics}, 23\penalty0 (5):\penalty0
+  1779--1801, 1995.
 
 \bibitem[Zhang and Cheung(2022)]{zhangcheung2022reusable}
 Xilin Zhang and Wang~Chi Cheung.
