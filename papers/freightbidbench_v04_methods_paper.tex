@@ -3,7 +3,10 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage[section]{placeins}
 \usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue!50!black,
+citecolor=green!35!black, urlcolor=cyan!40!black}
 \usepackage{natbib}
 \usepackage{array}
 \usepackage{microtype}
@@ -23,6 +26,8 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{assumption}{Assumption}
 \newtheorem{remark}{Remark}
+\newtheorem{hypothesis}{Hypothesis}
+\newtheorem{corollary}{Corollary}
 
 \setlength{\emergencystretch}{3em}
 
@@ -32,47 +37,71 @@
 \title{Certified-Gap Dual-Price Policies for Real-Time Truckload Bid
 Acceptance with Relocating, Clock-Constrained
 Resources\thanks{Evaluation artifact: FreightBidBench
-(\texttt{freightbidbench-v0.4-dev});
+(contracts \texttt{freightbidbench-v0.4-dev} and
+\texttt{-v0.4.1}, release tag \texttt{v0.4.2});
 \url{https://github.com/aswincsekar/freightbidbench}. All values
 reproduce per Appendix~\ref{sec:repro}.}}
 \author{Aswin Chandrasekaran \\ Bubba AI \\ \texttt{aswin@bubba.ai}}
-\date{July 2026}
+\date{August 2026}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
 A truckload carrier must accept or reject each load tender within
-seconds. The decision depends on fleet state, hours-of-service (HOS)
-clocks, and appointment windows. We model this as a weakly coupled
-dynamic program in which the resources relocate and carry clocks:
-serving a request moves the truck to a new market and depletes its
-clocks, and whether a truck can serve a request depends on its state.
-Occupancy-based reusable-resource models do not cover this setting.
+seconds, under fleet state, hours-of-service clocks, and appointment
+windows. We model this as a weakly coupled dynamic program whose
+resources relocate and carry clocks --- service capability is a
+controlled state variable --- a combination outside occupancy-based
+reusable-resource models and the stateless relocating-resource
+pricing line.
 
 We build a real-time dual-price policy from the same Lagrangian
-relaxation that gives the problem's upper bound. Policy and bound come
-from one object, so every run reports a \emph{certified optimality
-gap}. We prove three things. First, the certificate is valid for any
-duals, any discretization, and any surrogate quality (Theorem~1).
-Second, the policy's same-time spatial-gradient rule is exactly fluid
-complementary slackness, and the policy is asymptotically optimal in
-the subcritical fluid regime (Theorem~2); the fitted prices are also
-portable across sample paths, by linear-programming basis stability.
-Third, certificates have limits: per-resource Lagrangian slack can stay
-bounded away from zero at every fleet size. We exhibit a three-truck
-kernel with an exact rational certificate and a replication lemma
-(Theorem~3).
+relaxation that gives the problem's upper bound, so every run can
+report a \emph{certified optimality gap}. Three results. The certificate is
+valid for any duals, any permissive discretization, and any surrogate
+quality (Theorem~1). In the subcritical fluid regime --- analyzed in a
+grid-aligned hourly idealization of the model --- the policy's same-time
+spatial-gradient rule is exactly fluid complementary slackness, a
+lane-priced, soft-margin variant is asymptotically optimal with an
+asymptotically tight certificate, and the fitted prices are portable
+across sample paths by linear-programming basis stability (Theorem~2;
+both convergence statements hold as predicted on an
+assumption-matched synthetic family run through the paper's own
+pipeline).
+Certificates also have limits: a three-truck kernel with exact
+rational primal--dual certificates and a replication lemma shows
+per-resource Lagrangian slack bounded away from zero at arbitrarily
+large fleet sizes (Theorem~3).
 
 On a public closed-loop benchmark with thirty paired seeds, the policy
---- which needs no rollout labels, only one offline dual solve --- beats
-a rollout-trained surrogate on two of three
-scenarios (tight: $+2.0$~pp, 95\% CI $[+0.5, +3.6]$, Wilcoxon
-$p = 0.023$; mild: $+3.5$~pp, CI $[+2.4, +4.5]$) and ties the third.
-It decides in 0.04--0.09\,ms, three orders of magnitude faster than
-the Monte Carlo rollout teacher. Its certificates are stable across ten
-bounded instances per scenario, at 57--64\% of optimal, within 3--6
-points of what the $1000\times$-slower teacher certifies.
+--- one offline dual solve, no rollout labels --- beats a
+rollout-trained surrogate on two of three scenarios (tight:
+$+2.1$~pp, 95\% CI $[+0.5, +3.7]$; mild: $+3.5$~pp), with no
+statistically detectable difference on the third ($-0.9$~pp,
+$[-3.1, +1.4]$), deciding in 0.02--0.04\,ms --- roughly three
+orders of magnitude below the rollout teacher's 48--112\,ms, a
+separation large enough to survive the cross-host latency caveat of
+the experiments section. A re-solving deterministic-LP baseline,
+its cadence tuned on training streams, is the stronger profit
+baseline on the two stress scenarios and weaker on the third, while
+swinging up to 29 points with its cadence; the certifier is
+policy-agnostic and certifies it too. The dual policy's contribution
+is therefore not profit dominance over re-solving: it is a static,
+fit-once policy with a theoretical characterization --- fluid
+consistency and certificate tightness in the subcritical regime ---
+inside a framework whose ex-post, per-instance certifier prices every
+policy on the same scale. Its certificates are stable
+across ten bounded instances per scenario --- certified $\geq$
+57.7--60.1\% of the hindsight optimum, within 2.7--6.0 points of what
+the roughly $1000\times$-slower teacher itself certifies
+(62.8--63.7\%; latency hosts differ); its fitted prices are interchangeable across five
+independent training streams (tight scenario). Across sixty micro-instances where we compute the joint optimum
+exactly --- half by a randomized-window, ex-ante-placement design with
+service chains up to length four --- an integral optimal solution is
+found on 56
+and, pooled, at least $85\%$ of the certificate gap is policy loss,
+not relaxation slack.
 \end{abstract}
 
 \section{Introduction}
@@ -82,9 +111,12 @@ Truckload carriers and brokers answer a stream of load tenders in real
 time. Each acceptance consumes a truck. The truck's future usefulness
 depends on where the load delivers it and how much drive and duty time
 its driver has left. Each rejection preserves options whose value
-depends on demand that has not arrived yet. The operational state of
-the art for future-aware acceptance is finite-lookahead Monte Carlo
-rollout \citep{bertsekas1997rollout,goodson2017rollout}. Rollout is
+depends on demand that has not arrived yet. A widely used family of
+future-aware methods --- and the strongest baseline in the public
+benchmark below --- is finite-lookahead Monte Carlo rollout
+\citep{bertsekas1997rollout,goodson2017rollout}; dynamic truckload
+acceptance and fleet-management formulations go back further
+(\S\ref{sec:related}). Rollout is
 accurate, but it costs tens to hundreds of milliseconds per decision
 and scales poorly with fleet size. The benchmark release preceding this
 paper, FreightBidBench v0.3 \citep{chandrasekaran2026freightbidbench},
@@ -97,13 +129,24 @@ escalated decisions, and it says nothing about distance from
 
 This paper asks the harder question the bounds make precise:
 \textbf{how close to optimal can a real-time policy be, and can that
-closeness be certified per instance?} We use one object twice. The
-Lagrangian relaxation that dualizes the one-truck-per-load constraint
-gives two things: an upper bound on the optimum (the benchmark's
-ceiling), and per-load dual prices with per-market value potentials.
-From the prices and potentials we build an acceptance policy that runs
-in microseconds. Policy and bound come from the same relaxation, so
-every run ships with an observable certificate: realized policy value
+closeness be certified per instance?} We use one object twice.
+
+The logic fits in a paragraph. The only constraint coupling the trucks
+is that each load can be served by at most one of them. Dualize it,
+and each load's slot acquires a price $\lambda_t$; each truck then
+solves its own small planning problem against those prices, free of
+the other trucks. Summing the per-truck values (plus the prices) can
+only overcount the true optimum --- that sum is the upper bound. But
+the same solution also says what a slot costs and what standing in
+each market is worth. We compress both into two small tables, fitted
+once, offline. The policy is then a lookup: accept a load exactly when
+its profit, plus the value of ending up somewhere new, clears the
+slot price. No rollout simulation, training labels, or online
+optimization ever enters the decision loop. The certificate uses the
+same relaxation in a second, separate role: an \emph{ex-post},
+per-instance bound computation on the realized stream --- optional,
+offline, and policy-agnostic (it certifies any feasible policy, not
+just ours) --- so every reported run ships with realized policy value
 against realized bound.
 
 Pairing a Lagrangian policy with its bound is the standard playbook of
@@ -113,48 +156,62 @@ of the certificate:
 
 \begin{enumerate}
 \item \textbf{Model (\S\ref{sec:model}).} Resources whose \emph{service
-  capability is a controlled state variable}: state-dependent
-  feasibility (location and HOS clocks gate eligibility), controlled
-  relocation (service moves the resource), autonomous renewal (rests
-  restore clocks). None of the adjacent literatures --- classical weakly
-  coupled DPs, online reusable resources, dual mirror descent for online
-  allocation --- covers this combination (\S\ref{sec:related}).
-\item \textbf{Policy and certificate (\S\ref{sec:policy}--\ref{sec:certs}).}
-  A dual-price policy whose relocation term is a \emph{same-time spatial
-  gradient} of an aggregated value surface, plus Theorem~\ref{thm:cert}:
-  the certificate is valid for any duals, any permissive discretization,
-  and any surrogate quality. Lemma~\ref{lem:doublecount} isolates the
-  design rule --- \emph{duals price time, gradients price place} --- and
-  we show the naive continuation rule collapses (14\% of rollout) by
-  double-charging the busy-time cost.
-\item \textbf{Fluid consistency and portability (\S\ref{sec:fluid}).} In
-  the subcritical regime the gradient rule is exactly fluid
-  complementary slackness (Lemma~\ref{lem:flat}: idle potentials are
-  flat), fitted prices converge to fluid rents
-  (Lemma~\ref{lem:stability}), and the policy is asymptotically optimal
-  (Theorem~\ref{thm:fluid}). Basis stability further implies the fitted
-  prices are \emph{portable across days} --- a prediction the benchmark
-  confirms --- and predicts where portability fails.
-\item \textbf{Limits of the relaxation (\S\ref{sec:limits}).}
-  Certificates cannot promise everything: we exhibit a three-truck
-  kernel with a certified duality gap (exact rational arithmetic; a
-  half-integral chain packing beats the integer optimum) and a
-  replication lemma, so per-resource Lagrangian slack can stay bounded
-  away from zero at every fleet size (Theorem~\ref{thm:kernel}). Random
-  search shows such kernels are rare at small scale (${\sim}0.03\%$),
-  while the benchmark's proportional-scaling experiments show
-  per-resource bound slack \emph{growing} with contention density ---
-  behavior outside the conditions under which classical $O(1)$-gap
-  results hold.
-\item \textbf{Evidence (\S\ref{sec:experiments}).} Thirty paired seeds,
-  paired-bootstrap confidence intervals: the training-free policy beats
-  a rollout-trained linear surrogate on the tight ($+2.0$~pp, CI95
-  $[+0.5, +3.6]$) and mild ($+3.5$~pp) scenarios and ties it on scarce,
-  at lower latency than the
-  surrogate and ${\sim}1000\times$ below rollout; certificates over ten
-  independently bounded instances per scenario are stable (57--64\% of
-  optimal) and within 3--6 points of what rollout itself certifies ---
-  locating most of the certified gap in the relaxation, not the policy.
+  capability is a controlled state variable}: feasibility depends on
+  location and HOS clocks, service relocates the truck, and rest
+  restores the clocks. The adjacent literatures --- weakly coupled
+  DPs, online reusable resources, dual mirror descent, and, closest,
+  Lagrangian pricing of relocating resources
+  \citep{balseirobrownchen2021relocating} --- each lack at
+  least one of these ingredients (\S\ref{sec:related}).
+\item \textbf{Policy and certificate
+  (\S\ref{sec:policy}--\ref{sec:certs}).} A dual-price policy whose
+  relocation term is a \emph{same-time spatial gradient}, and
+  Theorem~\ref{thm:cert}: the certificate is valid for any duals, any
+  permissive discretization, and any surrogate quality. The design
+  rule is \emph{duals price time, gradients price place}; the naive
+  rule that charges time twice collapses to 17--26\% of rollout
+  across the full thirty-pair design (Lemma~\ref{lem:doublecount},
+  Hypothesis~\ref{hyp:doubleshade}).
+\item \textbf{Fluid theory (\S\ref{sec:fluid}).} In the subcritical
+  regime the gradient rule is exactly fluid complementary slackness,
+  and a lane-priced, soft-margin variant of the policy is
+  asymptotically optimal with an asymptotically tight certificate
+  (Theorem~\ref{thm:fluid}, Corollary~\ref{cor:tight}; both stated
+  for a grid-aligned hourly idealization of the model,
+  Remark~\ref{rem:gridgap}). The same
+  basis-stability argument explains why fitted prices are
+  \emph{portable across independent training realizations}, and
+  predicts where portability fails.
+\item \textbf{Limits (\S\ref{sec:limits}).} Certificates cannot
+  promise everything: a three-truck kernel with exact rational primal
+  and dual certificates shows per-resource Lagrangian slack can stay
+  bounded away from zero at arbitrarily large fleet sizes
+  (Theorem~\ref{thm:kernel}). Such kernels were rare under our
+  particular random instance sampler (${\sim}0.03\%$ of draws);
+  whether they matter at benchmark scale is an attribution question we
+  treat empirically.
+\item \textbf{Evidence (\S\ref{sec:experiments}).} On thirty paired
+  seeds the policy beats a rollout-trained surrogate on two of three
+  scenarios, with no statistically detectable difference on the
+  third, at roughly $1000\times$ lower latency than rollout
+  (latencies timed on different hosts; the ratio is indicative); a cadence-tuned re-solving LP baseline earns more
+  profit on the stress scenarios (and less on mild, swinging up to
+  29~pp with its cadence) --- the dual policy's distinct
+  offer is a static, fit-once policy with a fluid-regime
+  characterization, and the certifier is an ex-post, per-instance
+  computation, policy-agnostic by design, certifying the DLP and
+  rollout as well; Theorem~\ref{thm:fluid}'s convergence
+  predictions hold on an assumption-matched synthetic family run
+  through the paper's own pipeline, production shrinkage included
+  (certified fraction $70.2 \to 99.8\%$, per-truck gap
+  $\$819 \to \$6.6$ over $K = 48$--$768$, thirty train/eval pairs
+  per size); its (tight-scenario)
+  fitted prices are interchangeable across five independent training
+  realizations; and on micro-instances where the joint optimum is
+  exactly computable --- including a randomized-window, ex-ante
+  placement design with service chains up to length four --- the
+  certificate gap is overwhelmingly policy loss, not relaxation
+  slack.
 \end{enumerate}
 
 \subsection{Related work}
@@ -174,18 +231,57 @@ extension is the resource model (state-dependent participation,
 controlled relocation) and the explicit certificate framing at
 sub-millisecond decision latency. \citet{brownzhang2023strength} bound
 the ALP--Lagrangian gap by $O(1)$ constants under conditions on linking
-constraints that state-dependence violates; Theorem~\ref{thm:kernel} and
-the scaling experiments exhibit exactly the behavior their conditions
+constraints that state-dependence violates; Theorem~\ref{thm:kernel}
+constructs instances with exactly the behavior their conditions
 exclude --- in the natural freight scaling, constraints number
-$\propto K$ and participation is state-dependent.
+$\propto K$ and participation is state-dependent. (The benchmark's
+growing \emph{reported} certificate gaps in Table~\ref{tab:scaling}
+are consistent with that mechanism but confounded with dual
+convergence; \S\ref{sec:experiments} keeps the attribution open.)
 
-\paragraph{Online reusable resources.} \citet{zhangcheung2022reusable}
+\paragraph{Relocating and reusable resources.} The closest prior
+work is \citet{balseirobrownchen2021relocating}, who price relocating
+resources on a hub-and-spoke network: one Lagrangian relaxation
+yields both a dynamic pricing policy and an upper bound, and the
+policy's loss is $O(\ln n / n)$ in a supply-constrained large-network
+regime (spokes and resources scaling together). That is the template
+for policy-plus-bound pairing under relocation, and our mechanism
+parallels it. The differences define this paper's claim: (i) their
+resources carry no internal state beyond location --- participation
+is availability-only --- whereas our trucks carry HOS clocks and
+window feasibility, so service capability is a controlled state
+variable; (ii) their control is per-request pricing, ours is
+accept/reject under exogenous prices at a hard latency budget; (iii)
+their guarantee is asymptotic in a scaling regime, whereas our
+certificate is ex-post on each realized instance, valid for any duals
+at any scale (Theorem~\ref{thm:cert}), with tightness proved only in
+the subcritical regime (Theorem~\ref{thm:fluid}) and impossible in
+general (Theorem~\ref{thm:kernel}); (iv) the asymptotic regimes
+differ --- they scale network size with supply, we scale fleet and
+demand on fixed lane geometry. \citet{zhangcheung2022reusable}
 and the nonstationary extension \citet{zhangcheung2025nonstationary}
-allocate units that occupy and \emph{return unchanged}; feasibility is
-availability-only. A truck returns elsewhere with depleted clocks. This
-controlled-relocation distinction is not cosmetic: it is what makes the
-chain-packing LP non-integral (\S\ref{sec:limits}) and what the
-same-time gradient prices (\S\ref{sec:fluid}).
+allocate units that occupy and \emph{return unchanged}; feasibility
+is availability-only. A truck returns elsewhere with depleted clocks.
+The distinction is not cosmetic, but the honest statement is
+narrower than ``relocation breaks integrality'':
+\citet{brownzhang2023strength} place price-directed control of
+relocating resources among the models satisfying their zero-gap
+structural conditions, so relocation alone does not produce
+Lagrangian slack --- rather, clock- and state-dependent participation
+creates chain-conflict structures absent from standard
+price-directed relocating-resource models, and
+Theorem~\ref{thm:kernel}'s kernel exhibits exactly such a structure
+(\S\ref{sec:limits}); the same structure is what the same-time
+gradient prices (\S\ref{sec:fluid}). The recent reusable-resource
+frontier sharpens the frame: stock-dependent two-price policies
+attain the optimal pricing loss \citep{balseiromazhang2025twoprices},
+online allocation admits an asymptotically optimal competitive ratio
+\citep{goyaliyengarudwani2025reusable}, and overloaded networks admit
+logarithmic regret \citep{xiegurvichkucukyavuz2025logregret}. None of
+these carries clock-dependent participation, which is where our model
+lives --- and they mark where our theory is weaker: outside the
+subcritical regime we offer a certificate, not a competitive ratio or
+regret guarantee.
 
 \paragraph{Online allocation with dual updates.} \citet{balseiro2020dual}
 attain optimal $O(\sqrt{T})$ regret with per-request dual mirror descent
@@ -195,10 +291,31 @@ literature --- and instead fix prices offline (portable by
 Lemma~\ref{lem:stability}), leaving the online variant to future work.
 A related alternative is re-solving a deterministic LP at each decision
 epoch, which achieves excellent regret in network revenue management;
-we do not pursue it because per-decision LP solves conflict with the
-benchmark's dependency-free runtime and with microsecond latency at
-growing instance sizes, but a re-solving baseline is a fair addition
-for future comparisons.
+per-decision solves conflict with microsecond latency at growing
+instance sizes, so we implement the periodically re-solving variant
+as a baseline instead (\texttt{dlp\_resolve},
+\S\ref{sec:experiments}); with its cadence tuned on training streams
+it out-earns the dual policy on two of three scenarios, and the
+comparison we draw is on certificates and fit-once deployment, not
+profit dominance. Re-solving is subtle in theory: conventional periodic
+re-solving does not by itself improve the DLP's asymptotic loss
+\citep{jasinkumar2013lp}, while carefully scheduled variants attain
+uniformly bounded loss \citep{bumpensantiwang2020resolving}; ours is
+the conventional periodic variant.
+
+\paragraph{Dynamic truckload acceptance.} The accept/reject problem
+itself has a direct lineage. \citet{kim2004dynamic} propose and
+simulate dynamic acceptance/rejection policies for large truckload
+fleets with time windows; \citet{yang2004realtime} compare
+rolling-horizon strategies --- including repeated reoptimization ---
+for real-time multivehicle truckload pickup and delivery;
+\citet{topaloglupowell2007pricing} incorporate
+pricing into stochastic dynamic fleet management through ADP value
+approximations. These lines optimize or approximate the same class of
+decisions; none reports per-instance optimality certificates, and
+their evaluations use proprietary or single-study instances rather
+than a versioned public benchmark --- the two gaps this paper and its
+companion \citep{chandrasekaran2026freightbidbench} target.
 
 \paragraph{Fleet ADP.} Industrial-scale approximate dynamic programming
 for truckload fleets \citep{simao2009adp,powell2007stochastic} produced
@@ -217,11 +334,15 @@ deferral rule to future work.
 
 \subsection{Resources, requests, and controlled relocation}
 
-Time is continuous on $[0, T]$. A fleet of $K$ resources (trucks) has
+Time runs on $[0, T]$. A fleet of $K$ resources (trucks) has
 states $x_k = (m_k, \tau_k, h_k, d_k) \in \mathcal{X}$: market $m$ in a
 finite set $\mathcal{M}$, next-available time $\tau$, and remaining
 drive/duty clocks $(h, d)$. Requests (load tenders)
-$\ell_1, \dots, \ell_N$ arrive at times $t_1 < \dots < t_N$; request
+$\ell_1, \dots, \ell_N$ arrive at times $t_1 \leq \dots \leq t_N$
+and are processed in this (index) order; in the idealized hourly model
+of \S\ref{sec:fluid}, all of an epoch's requests share its timestamp
+and are processed sequentially in index order after the epoch's
+completions release; request
 $\ell$ carries origin $o(\ell)$, destination $\delta(\ell)$, and the
 price/cost/window attributes of the benchmark. Three primitives
 distinguish the model from occupancy-based reusable resources:
@@ -275,12 +396,18 @@ parallelize (standard-library multiprocessing; bit-identical to serial).
 \section{The Dual-Price Policy}
 \label{sec:policy}
 
+The relaxation's solution is rich --- one price per realized load,
+one value function per truck --- but a deployable policy cannot carry
+per-load objects into unseen streams. This section compresses the
+solution into two small tables and reads the acceptance rule off
+them.
+
 \subsection{Price and value surrogates}
 \label{sec:surrogates}
 
-Fix any duals $\lambda \geq 0$ (in practice ${\sim}15$ subgradient
-iterates on one training scenario; policy quality saturates well before
-bound-grade convergence). Two aggregated objects are fitted offline:
+Fix any duals $\lambda \geq 0$ (in practice a few tens of subgradient
+iterates on one training scenario). Two aggregated objects are fitted
+offline:
 
 \begin{itemize}
 \item \textbf{A price surface}: the mean dual of loads, fitted either
@@ -299,9 +426,16 @@ bound-grade convergence). Two aggregated objects are fitted offline:
     \widehat{W}(m, t) = \max\Bigl( \widehat{W}(m, t{+}1),\;
     \max_{\ell:\, t_\ell = t,\, o(\ell) = m}
     \bigl[ \bar{r}(\ell) - \lambda_{t_\ell}
-    + \widehat{W}(\delta(\ell), t + tt(\ell)) \bigr] \Bigr).
+    + \widehat{W}(\delta(\ell), t + \tau(\ell)) \bigr] \Bigr).
     \label{eq:wrec}
   \end{equation}
+  Here $\bar{r}(\ell)$ is the \emph{net} realized profit of the
+  feasibility layer (linehaul revenue minus direct, deadhead, and
+  expected yard-delay costs) and $\tau(\ell)$ is the rest-inclusive
+  completion advance of a fresh in-market truck's planned schedule ---
+  the same reward and transition the Lagrangian sub-MDP uses, so
+  $\widehat{W}$ approximates that sub-MDP's value on the aggregated
+  state (\path{scripts/fit_value_togo.py}).
 \end{itemize}
 
 \subsection{Policy}
@@ -317,10 +451,11 @@ with the best realized profit:
 
 \emph{Step 2: price the decision.} Compute the relocation gain first.
 It is the value of standing at the destination instead of the origin,
-compared at the same time $t + tt(\ell)$:
+compared at the same time $t + \tau(\ell)$ --- the chosen truck's
+actual schedule completion, rests included:
 \begin{equation}
-  g(\ell, t) \;=\; \widehat{W}\bigl(\delta(\ell), t + tt(\ell)\bigr)
-  \;-\; \widehat{W}\bigl(o(\ell), t + tt(\ell)\bigr).
+  g(\ell, t) \;=\; \widehat{W}\bigl(\delta(\ell), t + \tau(\ell)\bigr)
+  \;-\; \widehat{W}\bigl(o(\ell), t + \tau(\ell)\bigr).
   \label{eq:gradient}
 \end{equation}
 Then start from the profit, subtract the price of the slot, and add the
@@ -343,6 +478,13 @@ rollout. The advantage widens with fleet size.
 
 \section{Certified Gaps}
 \label{sec:certs}
+
+The policy came from a relaxation; this section states what that
+buys. The theorem is deliberately unconditional: nothing about the
+quality of the duals, the discretization, or the fitted tables is
+assumed. Validity is structural --- errors anywhere degrade the
+policy or loosen the bound, but they can never make the certificate
+lie.
 
 \begin{theorem}[Certified optimality gap]
 \label{thm:cert}
@@ -393,66 +535,90 @@ slackness, the assembled plan is optimal and the certificate is tight.
 In practice a residual contested set (${\sim}1$--$2\%$ of loads) keeps
 the certificate strictly positive.
 
-\begin{lemma}[Busy-time double-counting]
+\begin{lemma}[Continuation decomposition]
 \label{lem:doublecount}
-In recursion~\eqref{eq:wrec}, $\widehat{W}(m, t) - \widehat{W}(m, t')$
-equals the value of the best dual-netted service chain departing $m$
-within $[t, t')$; hence the naive continuation
-$\widehat{W}(\delta, t{+}tt) - \widehat{W}(o, t)$ subtracts the
-busy-time opportunity value a second time on top of $\hat{\lambda}$,
-while the same-time gradient prices relocation alone.
-\end{lemma}
-
-\begin{proof}
-Define two quantities at the decision $(\ell, t)$ with
-$t' = t + tt(\ell)$:
+At a decision $(\ell, t)$ with $t' = t + \tau(\ell)$, define
 \[
   D_{\mathrm{time}} \;=\; \widehat{W}(o, t) - \widehat{W}(o, t'),
   \qquad
   D_{\mathrm{place}} \;=\; \widehat{W}(\delta, t') - \widehat{W}(o, t').
 \]
+Then (i) the naive continuation splits exactly,
+$\widehat{W}(\delta, t') - \widehat{W}(o, t)
+= D_{\mathrm{place}} - D_{\mathrm{time}}$; and (ii)
+$D_{\mathrm{time}} \geq 0$ is the \emph{window option value}: the
+incremental value, under recursion~\eqref{eq:wrec}, of the resource
+being dispatchable at $o$ during $[t, t')$ rather than only from $t'$
+(including any post-window continuation difference of the chains it
+enables).
+\end{lemma}
 
-\emph{Step 1.} $D_{\mathrm{time}} \geq 0$, and it equals the value of
-the best dual-netted chain departing $o$ within $[t, t')$. The wait
-branch of recursion~\eqref{eq:wrec} makes $\widehat{W}(m, \cdot)$
-non-increasing; unrolling the max branches over the window expresses
-the drop as exactly the best chain the truck gives up by being busy.
+\begin{proof}
+\emph{Step 1.} Part (i) is a one-line check: add and subtract
+$\widehat{W}(o, t')$.
 
-\emph{Step 2.} The naive continuation splits into the two parts:
-\[
-  \widehat{W}(\delta, t') - \widehat{W}(o, t)
-  \;=\; D_{\mathrm{place}} - D_{\mathrm{time}}.
-\]
-This is a one-line check: add and subtract $\widehat{W}(o, t')$.
-
-\emph{Step 3.} The duals already price the busy time on the contested
-stream, so a rule that uses the naive continuation charges
-$D_{\mathrm{time}}$ a second time on top of $\hat{\lambda}$. The
-same-time gradient $g = D_{\mathrm{place}}$ charges the relocation
-only.
+\emph{Step 2.} For (ii): the wait branch of \eqref{eq:wrec} makes
+$\widehat{W}(m, \cdot)$ non-increasing, so $D_{\mathrm{time}} \geq 0$.
+Unrolling the max branches from $t$ until the first branch that waits
+past $t'$ shows $\widehat{W}(o, t) = \max\bigl( \widehat{W}(o, t'),\;
+\max\,\{\text{dual-netted value of chains first dispatched in }
+[t, t')\} \bigr)$, where each chain's value includes its full
+continuation beyond the window. The difference of the two maxima is
+exactly the option value of the window.
 \end{proof}
 
-Empirically the naive rule collapses to 14--17\% of rollout profit; the
-gradient rule attains 90--95\% (\S\ref{sec:experiments}). \emph{Duals
-price time; gradients price place.} Lemma~\ref{lem:flat} upgrades this
-from a property of our construction to fluid optimality.
+\begin{hypothesis}[Double shading]
+\label{hyp:doubleshade}
+On contested streams the fitted price $\hat{\lambda}$ already reflects
+the rent of the busy slots (its limit under
+Lemma~\ref{lem:stability} is the per-slot rent
+$\mathbb{E}[(r - \theta)_+]$), so a rule that additionally subtracts
+$D_{\mathrm{time}}$ shades the same opportunity twice and
+under-accepts. The same-time gradient $g = D_{\mathrm{place}}$ avoids
+the second charge by construction.
+\end{hypothesis}
+
+We state this as a hypothesis, not a theorem: $\lambda_t$ is formally
+the dual of the one-truck-per-load coupling constraint, and
+identifying it with a busy-time capacity price is exact only in the
+fluid limit (where Lemma~\ref{lem:stability} gives the rent identity
+and, by Remark~\ref{rem:honest}, $D_{\mathrm{time}}$ itself vanishes
+so the two rules coincide). The hypothesis earns its keep at finite
+$K$ on contested streams, where its prediction is dramatic and
+confirmed: the naive rule collapses to 16.7--26.2\% of rollout
+profit across the full thirty-pair design while the gradient rule
+attains 90.2--101.8\% (\S\ref{sec:experiments}). \emph{Duals price time; gradients price
+place} is the design heuristic this supports.
 
 \section{Fluid Consistency in the Subcritical Regime}
 \label{sec:fluid}
 
+The certificate of \S\ref{sec:certs} is always valid but says nothing
+about tightness. This section identifies a regime where tightness ---
+and policy optimality --- can be proved. The plan has three steps:
+write down the fluid limit of the model and observe that its optimal
+acceptance rule is exactly our same-time gradient rule
+(Lemma~\ref{lem:flat}); show the fitted tables converge to that fluid
+solution (Lemma~\ref{lem:stability}, with the companion
+$\widehat{W}$-consistency Lemma~\ref{lem:wcons} in the appendix); and couple
+the finite system to the fluid one (Theorem~\ref{thm:fluid}, with the
+fleet-coupling step proved in Appendix~\ref{sec:coupling}).
+
 \subsection{Fluid model and its LP}
 
-Scale fleet and demand together: $K$ resources, lane-$\ell$ arrivals a
-Poisson process of rate $K \Lambda_{\ell}(t)$ with mean reward
+Scale fleet and demand together: $K$ resources, lane-$\ell$ arrivals
+Poisson with intensity $K \Lambda_{\ell}(t)$ --- realized, in the
+idealized model this section analyzes, as independent hour-cell
+counts arriving at discrete hour epochs (the grid-alignment clause of
+(A4) below) --- with mean reward
 $\bar{r}_{\ell}$ and occupation time $\tau_{\ell}$ (travel plus any
 inserted rests, so a resource completing service is idle with renewed
 clocks), lane geometry fixed.
-Normalize per resource. The fluid control problem routes resource mass
-over the market--time network: dispatch rates
-$u_{\ell}(t) \in [0, \Lambda_{\ell}(t)]$ with $u_{\ell} \equiv 0$ on
-$t < 0$, idle mass $z_m(t) \geq 0$ with initial condition
-$z_m(0) = z^0_m$, $\sum_m z^0_m = 1$ (the benchmark's proportional
-placement), and flow balance
+Normalize per resource. For motivation only, the continuous-time
+display, in the tradition of revenue management
+\citep{gallego1997network}: dispatch rates
+$u_{\ell}(t) \in [0, \Lambda_{\ell}(t)]$, idle mass
+$z_m(t) \geq 0$, and
 \begin{equation}
   \dot{z}_m(t) = \sum_{\ell:\, \delta_{\ell} = m} u_{\ell}(t - \tau_{\ell})
   - \sum_{\ell:\, o_{\ell} = m} u_{\ell}(t), \qquad
@@ -460,92 +626,145 @@ placement), and flow balance
   + \omega \sum_m V(m)\, \tilde{z}_m(T),
   \label{eq:fluid}
 \end{equation}
-where $\tilde{z}_m(T) = z_m(T) + \sum_{\ell:\, \delta_{\ell} = m}
-\int_{T - \tau_{\ell}}^{T} u_{\ell}(t)\, dt$ credits in-transit mass at
-its destination, matching the model's terminal value
-$\Phi = \omega \sum_k V(m_k(T))$ (a served resource's market is its
-destination). For dispatch arcs landing after the horizon, extend the
-potentials by $w_m(s) := \omega V(m)$ for $s > T$; at the horizon the
-terminal dual condition is $w_m(T) \geq \omega V(m)$, with equality
-where $z_m(T) > 0$ --- so under (A1) below, equality holds everywhere.
-This display is the continuous fluid limit, in the tradition of
-revenue management \citep{gallego1997network}; all quantitative
-statements below are made on its \emph{hourly} finite LP (cells
-$(\ell, h)$, the fitting granularity), whose optimal basis is
-well-defined, and \emph{basis switches} mean changes of that optimal
-basis across hour boundaries. Write $V_f$ for the value and
-$(\lambda_{\ell}(t), w_m(t))$ for optimal duals on the arrival-capacity
-and flow-balance constraints. Dual feasibility on dispatch and waiting
-arcs reads
+with $\tilde{z}$ crediting in-transit mass at its destination.
+\emph{The formal object of this section is the following finite
+epoch LP}, on the hour epochs $h = 0, \dots, H$ (with $T = H$) and
+lane--hour cells $(\ell, h)$ --- the fitting granularity. Variables:
+dispatch masses $u_{\ell}(h) \geq 0$ for $0 \leq h < H$, declared
+zero outside that range (so the $h = H$ balance row carries no
+outflow term), and \emph{post-batch} idle masses $z_m(h) \geq 0$.
 \begin{align}
-  \text{(D1)}\quad & w_{o_{\ell}}(t) \geq \bar{r}_{\ell}
-  - \lambda_{\ell}(t) + w_{\delta_{\ell}}(t + \tau_{\ell}),
-  \quad \text{with equality on used arcs}, \nonumber \\
-  \text{(D2)}\quad & w_m(t) \geq w_m(t^{+}),
-  \quad \text{with equality where } z_m(t) > 0. \nonumber
+  V_f \;=\; \max_{u, z \geq 0}\;\;
+  & \sum_{h=0}^{H-1} \sum_{\ell} \bar{r}_{\ell}(h)\, u_{\ell}(h)
+  \;+\; \omega \sum_m V(m)\, z_m(H)
+  \;+\; \omega \sum_{\ell} V(\delta_{\ell})
+      \!\!\sum_{h > H - \tau_{\ell}}\!\! u_{\ell}(h)
+  \label{eq:epochlp} \\
+  \text{s.t.}\;\;
+  & z_m(h) \;=\; z_m(h{-}1)
+    \;+\; \sum_{\ell:\, \delta_{\ell} = m} u_{\ell}(h - \tau_{\ell})
+    \;-\; \sum_{\ell:\, o_{\ell} = m} u_{\ell}(h)
+    \quad \forall m,\, 0 \leq h \leq H,
+    \label{eq:discreteflow} \\
+  & u_{\ell}(h) \;\leq\; \Lambda_{\ell}(h)
+    \quad \forall \ell,\, 0 \leq h < H, \nonumber
 \end{align}
+with $z_m(-1) := z^0_m$, $\sum_m z^0_m = 1$ (the benchmark's
+proportional placement). The objective's last sum credits dispatches
+completing past the horizon at their destination's terminal value ---
+the discrete $\tilde{z}$ --- matching the model's terminal value
+$\Phi = \omega \sum_k V(m_k(T))$. The balance rows carry the
+\emph{pre-batch} inventory implicitly:
+$z^{-}_m(h) := z_m(h{-}1) + \sum_{\ell: \delta_{\ell}=m}
+u_{\ell}(h - \tau_{\ell})$, and $z_m(h) \geq 0$ enforces that epoch
+$h$'s dispatches never exceed it. Write
+$(\lambda_{\ell}(h), w_m(h))$ for optimal duals on the demand and
+balance rows, extended by $w_m(h') := \omega V(m)$ for $h' > H$.
+Dual feasibility on the dispatch columns $u_{\ell}(h)$ and waiting
+columns $z_m(h)$, $h < H$, reads
+\begin{align}
+  \text{(D1)}\quad & w_{o_{\ell}}(h) \geq \bar{r}_{\ell}(h)
+  - \lambda_{\ell}(h) + w_{\delta_{\ell}}(h + \tau_{\ell}),
+  \quad \text{with equality on used columns}, \nonumber \\
+  \text{(D2)}\quad & w_m(h) \geq w_m(h + 1),
+  \quad \text{with equality where } z_m(h) > 0, \nonumber
+\end{align}
+and at the horizon $w_m(H) \geq \omega V(m)$, with equality where
+$z_m(H) > 0$ --- so under (A1) below, equality holds everywhere.
+
+\begin{remark}[Conventions of the idealized stochastic model]
+\label{rem:hourlyreading}
+At each epoch, completions release first, the epoch's arrival batch
+is then processed sequentially in load-index order, and $X^{-}_m(h)$
+denotes the idle count after completions and before the batch
+(matching the LP's $z^{-}_m(h)$), $X^{+}_m(h)$ after the batch
+(matching $z_m(h)$). The continuous display \eqref{eq:fluid} is
+motivation only; every quantity in the statements and proofs below
+is epoch-indexed and refers to the epoch LP \eqref{eq:epochlp}.
+\end{remark}
 
 \begin{assumption}
 \label{ass:regime}
-(A1) Subcriticality: the fluid optimum keeps $z_m(t) \geq z_{\min} > 0$
-for all $m, t$. (A2) Clock and window slack, as a primitive condition
+(A1) Subcriticality: the epoch LP's optimum keeps the post-batch
+idle mass bounded below, $z_m(h) \geq z_{\min} > 0$ for all $m, h$
+(pre-batch mass $z^{-}_m(h) \geq z_m(h)$ is then also bounded
+below). (A2) Clock and window slack, as a primitive condition
 on model data: occupation times $\tau_{\ell}$ are rest-inclusive, so a
 resource completing service is idle with renewed clocks, and an idle
 in-market resource is service-feasible for any in-market arrival
 (appointment windows and pickup reach are non-binding for idle local
-resources). (A3) Nondegeneracy: the hourly fluid LP has a unique,
-nondegenerate optimal basis on each hour cell. (A4) Bounded rewards
-and occupation times; $\Lambda_{\ell}(\cdot)$ and
+resources). (A3) Nondegeneracy: the epoch LP \eqref{eq:epochlp} has a unique,
+nondegenerate optimal basis (one global basis for the whole finite
+horizon). (A4) Bounded rewards
+and occupation times --- write $r_{\max} := \sup |r|$ over all
+loads and $V_{\max} := \max_m |V(m)|$; $\Lambda_{\ell}(\cdot)$ and
 $\bar{r}_{\ell}(\cdot)$ constant on hourly cells (the benchmark's
-periodic hourly schedule), so all basis switches occur at hour
-boundaries and no cell straddles one; and rewards within a
+periodic hourly schedule), so the LP data are constant within each
+cell and change only at cell boundaries; rewards within a
 lane--hour cell are homogeneous at scale ($r \equiv \bar{r}_{\ell}(h)$
-up to $o(1)$ dispersion). Remark~\ref{rem:heterogeneous} discusses
-heterogeneous rewards.
+up to $o(1)$ dispersion); and \emph{grid alignment}: the idealized
+model is a discrete-time model on hour epochs $h = 0, 1, \dots, T$
+--- the cell count $N_{\ell h}$ is Poisson with mean
+$K \int_h^{h+1} \Lambda_{\ell}(s)\, ds$, independent across cells,
+all of a cell's arrivals are realized \emph{at} its epoch, and every
+occupation time $\tau_{\ell}$ is a positive integer number of hours.
+Consequently every event of the idealized model --- arrival,
+dispatch, completion --- occurs at a grid epoch, the load-level
+network is itself a market--hour network, and every service advances
+the grid by at least one epoch. The benchmark violates the
+grid-alignment clause --- its arrivals land at hour marks but its
+rest-inclusive durations are fractional, so completions are off-grid
+--- and this section's fluid results are statements about the hourly
+idealization; Remark~\ref{rem:gridgap} states the gap.
+Remark~\ref{rem:heterogeneous} discusses heterogeneous rewards.
 \end{assumption}
 
 \begin{lemma}[Idle potentials are pinned; the gradient rule is fluid CS]
 \label{lem:flat}
-(i) Under (A1), (D2) holds with equality for all $m, t$, and combined
+(i) Under (A1), (D2) holds with equality for all $m, h$, and combined
 with the terminal condition this pins the potentials globally:
-$w_m(t) \equiv \omega V(m)$ on $[0, T]$. Consequently the
+$w_m(h) \equiv \omega V(m)$ for $h = 0, \dots, H$. Consequently the
 fluid-optimal acceptance rule ---
-serve lane $\ell$ at $t$ iff
-$\bar{r}_{\ell} - \lambda_{\ell}(t) + w_{\delta_{\ell}}(t + \tau_{\ell})
-- w_{o_{\ell}}(t) \geq 0$ --- coincides with the same-time
+serve lane $\ell$ at $h$ iff
+$\bar{r}_{\ell}(h) - \lambda_{\ell}(h) + w_{\delta_{\ell}}(h + \tau_{\ell})
+- w_{o_{\ell}}(h) \geq 0$ --- coincides with the same-time
 spatial-gradient rule
 \begin{equation}
-  \bar{r}_{\ell} - \lambda_{\ell}(t)
-  + \bigl[ w_{\delta_{\ell}}(t + \tau_{\ell})
-  - w_{o_{\ell}}(t + \tau_{\ell}) \bigr] \geq 0.
+  \bar{r}_{\ell}(h) - \lambda_{\ell}(h)
+  + \bigl[ w_{\delta_{\ell}}(h + \tau_{\ell})
+  - w_{o_{\ell}}(h + \tau_{\ell}) \bigr] \geq 0.
   \label{eq:fluidrule}
 \end{equation}
-(ii) Locally, without (A1): if $z_o > 0$ on $[t, t + \tau]$ then
-$w_o(t) = w_o(t + \tau)$, and the naive-continuation penalty
-$w_o(t) - w_o(t + \tau)$ is exactly the binding-capacity correction:
-zero where idle mass persists, strictly positive where capacity binds.
+(ii) Locally, without (A1): if $z_o(h') > 0$ for
+$h' = h, \dots, h + \tau$ then
+$w_o(h) = w_o(h + \tau)$, and the naive-continuation penalty
+$w_o(h) - w_o(h + \tau)$ is exactly the binding-capacity correction:
+zero where idle mass persists, and nonnegative --- possibly positive
+--- where capacity binds.
 \end{lemma}
 
 \begin{proof}
-\emph{Step 1.} Complementary slackness on a waiting arc says: if idle
-mass sits at $(m, t)$, the arc is used, so its dual inequality (D2) is
-tight. Under (A1) idle mass is positive everywhere, so (D2) holds with
-equality everywhere: $w_m(\cdot)$ cannot drop at any time, including
-hour boundaries, so it is constant on $[0, T]$.
+\emph{Step 1.} Complementary slackness on a waiting column says: if
+idle mass sits at $(m, h)$, the column is used, so its dual
+inequality (D2) is tight. Under (A1) idle mass is positive at every
+epoch, so (D2) holds with equality at every epoch: $w_m(\cdot)$
+cannot drop between consecutive epochs, so it is constant over
+$h = 0, \dots, H$.
 
-\emph{Step 2.} Terminal complementary slackness: $z_m(T) \geq
+\emph{Step 2.} Terminal complementary slackness: $z_m(H) \geq
 z_{\min} > 0$ makes the terminal dual condition tight,
-$w_m(T) = \omega V(m)$. With Step~1, $w_m(t) \equiv \omega V(m)$.
+$w_m(H) = \omega V(m)$. With Step~1, $w_m(h) \equiv \omega V(m)$.
 
 \emph{Step 3.} Take the fluid-optimal rule from (D1),
-$\bar{r}_{\ell} - \lambda_{\ell}(t) + w_{\delta_{\ell}}(t+\tau_{\ell})
-- w_{o_{\ell}}(t) \geq 0$, and replace $w_{o_{\ell}}(t)$ by
-$w_{o_{\ell}}(t + \tau_{\ell})$ using Step~1. This gives
+$\bar{r}_{\ell}(h) - \lambda_{\ell}(h) + w_{\delta_{\ell}}(h+\tau_{\ell})
+- w_{o_{\ell}}(h) \geq 0$, and replace $w_{o_{\ell}}(h)$ by
+$w_{o_{\ell}}(h + \tau_{\ell})$ using Step~1. This gives
 rule~\eqref{eq:fluidrule} exactly.
 
 \emph{Step 4.} For (ii): where capacity binds ($z_o = 0$) Step~1
 fails, (D2) can be strict, and the replaced term
-$w_o(t) - w_o(t+\tau)$ becomes a positive correction. That correction
+$w_o(h) - w_o(h+\tau)$ becomes a nonnegative correction that can be
+positive. That correction
 is what the naive rule charges even when capacity is slack.
 \end{proof}
 
@@ -557,9 +776,9 @@ vanishes and the $\varepsilon$-margin naive rule satisfies the same
 guarantee as the gradient rule: Theorem~\ref{thm:fluid} certifies that
 the gradient rule is fluid-optimal, not that it dominates the naive
 rule in the limit. The gradient-versus-naive separation --- the
-empirical collapse of Lemma~\ref{lem:doublecount} --- is a
-finite-$K$, contested-regime phenomenon, where fitted chain rents make
-the time profile of $\widehat{W}$ informative and the naive rule
+empirical collapse predicted by Hypothesis~\ref{hyp:doubleshade} ---
+is a finite-$K$, contested-regime phenomenon, where fitted chain rents
+make the time profile of $\widehat{W}$ informative and the naive rule
 double-charges it. Likewise, in the limit $\widehat{W}$ carries no
 information beyond the terminal values; its value at finite $K$ on the
 benchmark's tight and scarce scenarios --- which violate (A1) --- is an
@@ -572,25 +791,41 @@ empirical matter (\S\ref{sec:experiments}).
 \label{lem:stability}
 Work with the hourly fluid LP (cells $(\ell, h)$; the fitting
 granularity of $\hat{\lambda}$ and $\widehat{W}$). Under (A1)--(A4), on
-a sample path at scale $K$: (a) the realized arc-flow LP's node
-potentials $\hat{w}_m(h)$ equal the fluid potentials $w_m(h)$ with
-probability $1 - o(1)$, and its cell thresholds converge at
-$O_p(K^{-1/2})$; (b) the bucket-averaged load duals satisfy
-$\hat{\lambda}(\ell, h) \to \lambda_{\ell}(h)
-:= \mathbb{E}[(r - \theta_{\ell h})_+]$ at $O_p(K^{-1/2})$, where
+a sample path at scale $K$: (a) with probability $1 - o(1)$ the
+realized arc-flow LP's node potentials $\hat{w}_m(h)$ equal the
+fluid potentials $w_m(h)$ exactly, hence so do the cell thresholds
+$\hat{\theta}_{\ell h} = \hat{w}_{o_{\ell}}(h) -
+\hat{w}_{\delta_{\ell}}(h + \tau_{\ell})$; (b) on every cell with
+$\Lambda_{\ell}(h) > 0$ --- table claims are restricted to such
+cells; empty cells are handled by the fitter's shrinkage --- the
+fitted prices satisfy, on the same event,
+$|\hat{\lambda}(\ell, h) - \lambda_{\ell}(h)| =
+O(\delta_K) + O(K^{-1})$
+with $\lambda_{\ell}(h)
+:= (\bar{r}_{\ell}(h) - \theta_{\ell h})_+$, $\delta_K = o(1)$
+(A4)'s within-cell reward dispersion, and the $O(K^{-1})$ term from
+the fitter's five-pseudo-observation shrinkage toward the lane mean
+(absent without shrinkage), where
 $\theta_{\ell h} = w_{o_{\ell}}(h) - w_{\delta_{\ell}}(h + \tau_{\ell})$
-is the fluid acceptance threshold; (c) the chain-packing duals of
-Lemma~\ref{lem:dw} coincide with the arc-flow duals on an event of
-probability $1 - o(1)$.
+is the fluid acceptance threshold; (c) on an event of
+probability $1 - o(1)$, the chain-packing LP of Lemma~\ref{lem:dw}
+attains the arc-flow LP's optimal value, with corresponding optimal
+dual solutions under the column--arc mapping.
 \end{lemma}
 
 \begin{proof}
 \emph{(Step 1: cell LP and basis stability.)} Aggregate the realized
 instance into cells: $N_{\ell h}$ loads arrive in cell $(\ell, h)$ with
-i.i.d.\ rewards; the arc-flow relaxation over the market--hour network
+rewards within (A4)'s dispersion band of the cell mean; the
+arc-flow relaxation over the market--hour network
 is a finite LP with data $b_K = N/K$ (arrival masses) and $c_K$ (mean
-rewards). By Poisson concentration and the CLT over finitely many cells,
-$b_K = b + O_p(K^{-1/2})$ and $c_K = c + O_p(K^{-1/2})$. Let $B^{\star}$
+rewards). By Poisson concentration over finitely many cells,
+$b_K = b + O_p(K^{-1/2})$; the realized cell-mean rewards satisfy
+$|c_K - c| \leq \delta_K$ \emph{deterministically} --- every
+realized reward lies within (A4)'s dispersion bound of its cell mean,
+hence so does the average; no reward CLT is needed. Both
+perturbations vanish, which is all the basis-stability argument
+needs. Let $B^{\star}$
 be the fluid LP's optimal basis, unique and nondegenerate by (A3). Its
 optimality conditions --- reduced-cost signs and basic-variable
 positivity \citep[e.g.,][]{bertsimas1997introduction} --- hold with
@@ -604,10 +839,9 @@ exact, not merely approximate: under (A1) the waiting arcs are basic
 everywhere, so each $\hat{w}_m(h)$ telescopes along waiting arcs to
 the terminal coefficient $\omega V(m)$ --- a deterministic model
 constant that the random reward components of $c_B$ never touch. Hence
-$\hat{w}_m(h) = w_m(h) = \omega V(m)$ exactly on $E_K$, and the cell
-thresholds $\hat{\theta}_{\ell h}$, which inherit randomness only
-through the potentials, converge at the stated $O_p(K^{-1/2})$ rate
-from the objective perturbation of the dispatch arcs. This proves (a).
+$\hat{w}_m(h) = w_m(h) = \omega V(m)$ exactly on $E_K$; the cell
+thresholds are differences of these potentials, so they are exact on
+$E_K$ as well. This proves (a).
 
 \emph{(Step 2: disaggregation.)} In the load-level LP each load $i$ in
 cell $(\ell, h)$ has its own capacity constraint with dual $\lambda_i$.
@@ -615,23 +849,53 @@ With the basis fixed, complementary slackness gives
 $\lambda_i = (r_i - \hat{\theta}_{\ell h})_+$: under (A1) idle capacity
 is ample within every cell, so the load-level optimum serves exactly
 the above-threshold loads --- those earn their surplus as rent; loads
-below have slack capacity and zero dual. Averaging over the
-$N_{\ell h} = \Theta(K)$ i.i.d.\ rewards,
-$\hat{\lambda}(\ell, h) \to \mathbb{E}[(r - \theta_{\ell h})_+]$ by the
-law of large numbers at rate $O_p(K^{-1/2})$, using
-$\hat{\theta} \to \theta$ from (a). This proves (b).
+below have slack capacity and zero dual. On cells with
+$\Lambda_{\ell}(h) > 0$ we have $N_{\ell h} = \Theta(K)$; averaging
+over these rewards,
+each term $(r_i - \hat{\theta}_{\ell h})_+$ lies within $\delta_K$
+of $(\bar{r}_{\ell}(h) - \theta_{\ell h})_+$ on $E_K$ --- the
+threshold is exact by (a) and the reward within $\delta_K$ of the
+cell mean by (A4) --- hence so does the raw bucket average; the
+fitter's shrinkage mixes in the lane mean with weight
+$5/(N_{\ell h} + 5) = O(K^{-1})$ on positive-intensity cells, adding
+the stated $O(K^{-1})$. This proves (b).
 
-\emph{(Step 3: chains vs flows.)}
+\emph{(Step 3: chains vs flows.)} Under the grid-alignment clause of
+(A4), every load occupies whole hour cells, so each feasible chain
+maps to a path in the market--hour network and the chain-packing
+columns are exactly arc-incidence vectors of that network ---
 $\mathrm{conv}(\text{chains}_k) \subseteq \{\text{unit flows from } k
 \text{'s start}\}$, with equality of optimal values whenever every
-unit flow decomposes into clock-feasible chains. Under (A2) this holds
-by construction: occupation times are rest-inclusive, so a resource
-finishing any dispatch is idle with renewed clocks and, being in the
-destination market, is feasible for any subsequent in-market dispatch.
-Every path in the market--time network is therefore itself a feasible
-chain, the two polyhedra have equal optimal values, and both LPs share
-optimal duals. This proves (c).
+unit flow decomposes into clock-feasible chains. Under (A2) the
+decomposition direction holds by construction: occupation times are
+rest-inclusive, so a resource finishing any dispatch is idle with
+renewed clocks and, being in the destination market, is feasible for
+any subsequent in-market dispatch. Every path in the market--hour
+network is therefore itself a feasible chain, the two formulations
+have equal optimal values, and corresponding optimal dual solutions
+exist under the column--arc mapping. This proves (c).
 \end{proof}
+
+\begin{remark}[The hourly model versus the event-time benchmark]
+\label{rem:gridgap}
+Part (c) identifies the load-level chain-packing LP with the hourly
+arc-flow LP \emph{exactly}, and that exactness is bought by the
+grid-alignment clause of (A4): with fractional durations --- the
+benchmark's actual dynamics, whose arrivals do land on hour marks but
+whose rest-inclusive completions are off-grid --- a chain lands
+between cells, and the identification
+acquires an hourly-aggregation error that we have not bounded.
+Proving an $o(K)$ bridge between the event-time chain LP and the
+hourly fluid LP would extend Theorem~\ref{thm:fluid} and
+Corollary~\ref{cor:tight} to the benchmark's dynamics; we leave it
+open. Two consequences follow. First, Theorem~\ref{thm:fluid},
+Lemma~\ref{lem:stability}(c), and Corollary~\ref{cor:tight} are
+statements about the grid-aligned hourly model. Second, none of the
+certificates reported in \S\ref{sec:experiments} depend on this
+bridge: they all use the unconditional weak-duality bound of
+Theorem~\ref{thm:cert}, which is computed on the event-time instance
+itself and needs no grid alignment.
+\end{remark}
 
 \begin{remark}[Heterogeneous rewards]
 \label{rem:heterogeneous}
@@ -654,13 +918,17 @@ certified gaps; we do not attempt to decompose it here.
 \label{rem:portability}
 Step~1 says the price surface is a \emph{basis object}: two independent
 sample paths that land in the stability neighborhood --- probability
-$1 - o(1)$ --- share the same optimal basis, hence identical potentials
-and thresholds within $O_p(K^{-1/2})$, hence identical policy decisions
-by the threshold separation of (A3$'$). The empirical
-portability finding (identical policy decisions under frozen vs fresh
-duals) is LP basis stability, not an accident of the benchmark; and
-portability should fail near fluid basis switches (arrival-regime
-changes), a testable prediction.
+$1 - o(1)$ --- share the same optimal basis, hence exactly identical
+potentials and thresholds (Lemma~\ref{lem:stability}(a)) and fitted
+prices within $2\delta_K$ of each other, hence identical policy
+decisions by the threshold separation of (A3$'$). The empirical
+portability finding (identical aggregate outcomes --- equal profits
+and accept counts --- under frozen vs fresh duals; decision sequences
+were not compared) admits exactly this LP-basis-stability
+explanation; and
+portability should fail near the boundaries of the LP's stability
+region in the demand/reward parameters (arrival-regime changes), a
+testable prediction.
 \end{remark}
 
 \begin{theorem}[Subcritical fluid consistency]
@@ -690,9 +958,10 @@ evaluation path,
 \end{theorem}
 
 \begin{proof}
-We prove the two inequalities separately. Steps 1--3 are proved here;
-Step~4, the fleet-coupling estimate, is proved in full in
-Appendix~\ref{sec:coupling}, where the soft margin is also defined.
+We prove the two inequalities separately. Steps 1--3 are proved
+here; Steps 4--5 --- the fleet-coupling estimate and the value ledger
+--- are proved in full in Appendix~\ref{sec:coupling}, where the soft
+margin is also defined.
 
 \emph{Step 1 (upper bound on $\Vstar$).} The realized instance is the
 fluid LP with perturbed arrival counts. Poisson concentration
@@ -707,8 +976,9 @@ Cauchy--Schwarz. Hence $\Vstar(K) \leq V_f K + o(K)$.
 Lemma~\ref{lem:stability} and the $\widehat{W}$-consistency lemma of
 the appendix (Lemma~\ref{lem:wcons}), the fitted tables are within
 $\delta_K = o(1)$ of the fluid duals on every cell, on an event of
-probability $1 - o(1)$; under (A4) all basis switches sit on hour
-boundaries, so no cell mixes two dual regimes.
+probability $1 - o(1)$; under (A4) the LP data --- hence the
+optimal dual data --- are constant on each cell, so no cell mixes two
+dual regimes.
 
 \emph{Step 3 (the policy plays the fluid rule).} By
 Lemma~\ref{lem:flat}, the fluid-optimal rule is the same-time gradient
@@ -718,11 +988,14 @@ decisions agree with the fluid-optimal decisions on every cell
 $o(1)$-probability bad events.
 
 \emph{Step 4 (accepted arrivals find trucks:
-Appendix~\ref{sec:coupling}).} Because the policy is state-blind, the
-dispatch process is a thinning of the arrival stream as long as idle
-pools are nonempty; a time-uniform concentration bound plus a
-first-violation argument shows idle mass stays above
-$z_{\min} K/2$ throughout $[0, T]$ with probability $1 - o(1)$, so no
+Appendix~\ref{sec:coupling}).} Because the idealized policy is
+state-blind under (A2)--(A4) (see the appendix's opening scoping),
+the dispatch process is a thinning of the arrival stream as long as
+idle pools are nonempty; an epoch induction with whole-batch
+concentration --- the post-dispatch clause of (A1) keeps post-batch
+inventory at $z_{\min} K - O(\sqrt{K \log K})$, and within-batch
+prefixes are bounded by the whole batch's served mass --- keeps every
+pool positive throughout with probability $1 - o(1)$, so no
 accepted arrival is refused for lack of a resource, and realized
 service rates track fluid rates to $O(\sqrt{K \log K})$
 (Lemmas~\ref{lem:conc}--\ref{lem:track}).
@@ -743,49 +1016,121 @@ $\varepsilon$ growing in contention. (b) Assumption (A2) is where HOS
 clocks live; relaxing it requires a regeneration argument at rest events
 and is this section's remaining technical debt. (c) The theorem is
 stated for exactly optimal training duals. In practice the fitted
-duals are ${\sim}15$ subgradient iterates; empirically the policy's
-decisions are already invariant at that budget
-(\S\ref{sec:experiments}), consistent with the basis-stability
-mechanism of Lemma~\ref{lem:stability} --- the tables only need to
-land in the same basin, not converge in norm. Extending the theorem to
-value-suboptimal duals requires a sharpness modulus for the
-bucket-averaged functionals that is uniform in $K$; we do not pursue
-it here.
+duals are a few tens of subgradient iterates. The basis-stability
+mechanism of Lemma~\ref{lem:stability} suggests the tables only need
+to land in the same basin, not converge in norm, but we have not run
+the decision-invariance comparison that would establish a specific
+sufficient budget, and extending the theorem to value-suboptimal
+duals requires a sharpness modulus for the bucket-averaged functionals
+that is uniform in $K$; we do not pursue either here.
+\end{remark}
+
+Theorem~\ref{thm:fluid} says the \emph{policy} is asymptotically
+optimal. That alone does not say the computed \emph{certificate} is
+informative --- the bound could in principle stay loose while the
+policy is good. In the subcritical regime it does not:
+
+\begin{corollary}[Certificate tightness in the subcritical regime]
+\label{cor:tight}
+Under the assumptions of Theorem~\ref{thm:fluid}, write
+$V^{\pol^{\varepsilon}}(\xi, \zeta)$ for the realized policy value on
+evaluation path $\xi$ under tables fitted on the independent training
+path $\zeta$. With probability $1 - o(1)$ over the product of the two
+paths, the exact Lagrangian bound at optimal duals (a function of
+$\xi$ alone) matches the fluid value, and the certified gap vanishes
+per resource:
+\begin{equation}
+  \min_{\lambda \geq 0} L(\lambda; \xi) \;=\; V_f K + o(K),
+  \qquad
+  \frac{\min_{\lambda} L(\lambda; \xi)
+  - V^{\pol^{\varepsilon}}(\xi, \zeta)}{K}
+  \;\xrightarrow{\;p\;}\; 0.
+\end{equation}
+\end{corollary}
+
+\begin{proof}
+\emph{Step 1.} By Lemma~\ref{lem:dw} (\S\ref{sec:limits}),
+$\min_{\lambda} L(\lambda; \xi)$ equals the chain-packing LP value on
+$\xi$.
+
+\emph{Step 2.} On the event of Lemma~\ref{lem:stability}(c), the
+chain-packing LP shares its optimal value with the arc-flow LP over
+the realized instance.
+
+\emph{Step 3.} By Step~1 of Theorem~\ref{thm:fluid}'s proof, the
+arc-flow LP value is $V_f K + o(K)$ on an event of probability
+$1 - o(1)$. For the other side, weak duality \eqref{eq:lag} gives
+$\min_{\lambda} L(\lambda; \xi) \geq \Vstar(\xi) \geq
+V^{\pol^{\varepsilon}}(\xi, \zeta)$, and the ledger
+(Proposition~\ref{prop:ledger}, Steps 2--4, which hold pathwise on the
+good event of the product space) gives
+$V^{\pol^{\varepsilon}}(\xi, \zeta) \geq V_f K - o(K)$.
+
+\emph{Step 4.} Sandwich: on the intersection of the good events ---
+probability $1 - o(1)$ over the product of the training and
+evaluation paths --- both $\min_{\lambda} L(\lambda; \xi)$ and
+$V^{\pol^{\varepsilon}}(\xi, \zeta)$ lie within $o(K)$ of $V_f K$, so
+their difference is $o(K)$.
+\end{proof}
+
+\begin{remark}
+The benchmark reports $L$ from bucket-snapped enumeration at finitely
+many subgradient iterates; both choices only \emph{increase} the
+reported bound, so reported certificates are conservative relative to
+the corollary's exact Lagrangian. Conversely, \S\ref{sec:limits}
+exhibits instances where per-resource slack persists at every scale:
+together the two results bracket when certificates are informative ---
+tight under subcriticality, possibly loose under contention.
 \end{remark}
 
 \section{Limits of the Relaxation}
 \label{sec:limits}
 
+The subcritical theory says certificates can be tight. This section
+shows they need not be: the obstruction is combinatorial, three
+trucks suffice to exhibit it, and it survives every fleet size by
+replication.
+
 \begin{theorem}[Per-resource slack bounded away from zero]
 \label{thm:kernel}
 There exist instance families of the model with
-$[\min_{\lambda} L(\lambda) - \Vstar] / K \geq \gamma > 0$ for all fleet
-sizes $K$.
+$[\min_{\lambda} L(\lambda) - \Vstar] / K \geq \gamma > 0$ at
+arbitrarily large fleet sizes: every $K = 3n$, $n \geq 1$.
 \end{theorem}
 
 \begin{lemma}[Dantzig--Wolfe equivalence]
 \label{lem:dw}
 For a realized instance, let $\mathcal{C}_k$ denote resource $k$'s
-finitely many feasible service chains and $\mathrm{val}(S)$ a chain's
-total reward. Then $\min_{\lambda \geq 0} L(\lambda)$ equals the
-chain-packing LP
+finitely many feasible service chains --- including the empty chain
+$\emptyset$, whose value $\mathrm{val}(\emptyset)$ is the resource's
+stand-still terminal value (possibly negative) --- and
+$\mathrm{val}(S)$ a chain's total reward. Then
+$\min_{\lambda \geq 0} L(\lambda)$ equals the chain-packing LP
 \begin{equation}
   \max \Bigl\{ \textstyle\sum_k \sum_{S \in \mathcal{C}_k}
   \mathrm{val}(S)\, x_{k,S} \;:\;
   \sum_k \sum_{S \ni t} x_{k,S} \leq 1 \;\forall t,\;\;
-  \sum_S x_{k,S} \leq 1 \;\forall k,\;\; x \geq 0 \Bigr\}.
+  \sum_{S \in \mathcal{C}_k} x_{k,S} = 1 \;\forall k,\;\; x \geq 0 \Bigr\}.
   \label{eq:chainlp}
 \end{equation}
+The per-resource constraint is an equality: a resource must run
+exactly one chain, possibly the empty one --- with the inequality
+$\leq 1$ instead, a resource with a negative stand-still value could
+be dropped and its terminal value silently forgiven.
 \end{lemma}
 
 \begin{proof}
-$L(\lambda) = \sum_t \lambda_t + \sum_k \max_{S \in \mathcal{C}_k \cup
-\{\emptyset\}} [\mathrm{val}(S) - \lambda(S)]$ is the Lagrangian dual
+$L(\lambda) = \sum_t \lambda_t + \sum_k \max_{S \in \mathcal{C}_k}
+[\mathrm{val}(S) - \lambda(S)]$ is the Lagrangian dual
 function of the integer chain-packing program; each inner maximum is
 over a finite set, so $\min_{\lambda} L$ equals the LP relaxation over
 the convex hulls of the per-resource feasible sets
 \citep[Dantzig--Wolfe;][]{geoffrion1974lagrangean}, which is the
-displayed column LP.
+displayed column LP. (Equivalently, normalize each chain's value by
+its resource's stand-still value and relax the equality to $\leq 1$;
+the implementation does exactly this, and with nonnegative values, as
+in the kernel below, the two readings coincide without
+normalization.)
 \end{proof}
 
 \begin{lemma}[Replication]
@@ -807,37 +1152,58 @@ Lemma~\ref{lem:dw} per copy.
 Three resources with staggered availabilities and service budget 2 (a
 clock proxy), six loads in cyclic geography over three markets
 (\path{scripts/find_gap_kernel.py}; \path{reports/gap_kernel_search.md}).
-The certificate is checkable by hand in four steps.
+The certificate is checkable by hand in five steps: a primal packing
+bounds the LP from below, a matching dual solution pins it exactly.
 
 \emph{Check 1 (integer optimum).} Exhaustive enumeration of the joint
 decision tree gives $\Vstar(K_1) = 41$.
 
 \emph{Check 2 (a fractional packing).} Put weight $\tfrac{1}{2}$ on
-five chains:
+six chains:
 \[
-  T_0{:}\{L_4\},\quad T_1{:}\{L_2, L_3\},\quad T_1{:}\{L_5\},\quad
+  T_0{:}\{L_4\},\quad T_0{:}\emptyset,\quad
+  T_1{:}\{L_2, L_3\},\quad T_1{:}\{L_5\},\quad
   T_2{:}\{L_3, L_5\},\quad T_2{:}\{L_1, L_4\}.
 \]
 Feasibility: each shared load appears in exactly two chains
 ($L_3$, $L_4$, $L_5$), so its total weight is
 $\tfrac{1}{2} + \tfrac{1}{2} = 1$; every other load appears once at
-weight $\tfrac{1}{2}$; trucks $T_1$ and $T_2$ each run two chains at
-total weight $1$, and $T_0$ runs one at $\tfrac{1}{2}$.
+weight $\tfrac{1}{2}$; every truck's chain weights sum to exactly
+$1$, as the equality constraint of \eqref{eq:chainlp} requires ---
+$T_0$ splits between $\{L_4\}$ and its empty chain, whose
+stand-still value is zero here, so the empty chain adds feasibility
+and no value.
 
-\emph{Check 3 (its value).} The chain values are $7, 20, 14, 28, 20$,
-so the packing is worth
+\emph{Check 3 (its value).} The chain values are $7, 0, 20, 14, 28,
+20$, so the packing is worth
 \[
-  \tfrac{1}{2}\,(7 + 20 + 14 + 28 + 20) \;=\; \tfrac{89}{2}
+  \tfrac{1}{2}\,(7 + 0 + 20 + 14 + 28 + 20) \;=\; \tfrac{89}{2}
   \;=\; 44.5.
 \]
 
-\emph{Check 4 (conclude).} By Lemma~\ref{lem:dw},
-$\min_{\lambda} L$ equals the chain-packing LP value, which is at
-least the value of any feasible packing. So
+\emph{Check 4 (a matching dual).} The LP dual assigns load prices
+$\lambda$ and truck prices $\mu$ with
+$\mu_k + \sum_{t \in S} \lambda_t \geq \mathrm{val}(S)$ for every
+feasible chain. Take
 \[
-  \min_{\lambda} L \;\geq\; \tfrac{89}{2} \;>\; 41 \;=\; \Vstar(K_1),
+  \lambda = \bigl(0,\, 0,\, 0,\, \tfrac{21}{2},\, 7,\, \tfrac{9}{2}\bigr)
+  \text{ for } L_0, \dots, L_5,
+  \qquad
+  \mu = \bigl(0,\, \tfrac{19}{2},\, 13\bigr)
+  \text{ for } T_0, T_1, T_2.
 \]
-a certified duality gap of at least $\tfrac{7}{2}$ ($8.5\%$ of
+$K_1$ has exactly eight feasible chains; feasibility holds for each,
+with equality on the five packed chains (e.g.\
+$T_2{:}\{L_3, L_5\}$: $13 + \tfrac{21}{2} + \tfrac{9}{2} = 28$), and
+the dual value is
+$\sum_t \lambda_t + \sum_k \mu_k = 22 + \tfrac{45}{2} = \tfrac{89}{2}$.
+
+\emph{Check 5 (conclude).} By Lemma~\ref{lem:dw} and LP duality, the
+matched primal and dual values pin the relaxation exactly:
+\[
+  \min_{\lambda} L \;=\; \tfrac{89}{2} \;>\; 41 \;=\; \Vstar(K_1),
+\]
+a certified duality gap of exactly $\tfrac{7}{2}$ ($8.5\%$ of
 $\Vstar$). The binding structure ---
 one resource holding two valuable chains it can execute only once, with
 odd-cyclic overlap through shared loads --- is exactly the structure
@@ -847,16 +1213,22 @@ Service budgets are the special case of duty clocks whose renewal is
 slower than the residual horizon, so $K_1$ lies inside the model of
 \S\ref{sec:model}; and $K_1$ is not subcritical --- its contested loads
 bind capacity --- so there is no tension with
-Theorem~\ref{thm:fluid}. Theorem~\ref{thm:kernel} follows from $K_1$
-with $\gamma = 7/6$.
+Theorem~\ref{thm:fluid}. Theorem~\ref{thm:kernel} follows by
+replicating $K_1$ (Lemma~\ref{lem:replication}): every fleet size
+$K = 3n$ carries per-resource slack exactly $\gamma = 7/6$.
 
 \begin{remark}[Rarity and density]
-Random micro-instances carry certified gaps in only ${\sim}0.03\%$ of
-draws --- at small scale the relaxation is almost always tight --- while
-the benchmark's proportional-scaling experiments show per-resource bound
-slack growing with density ($+17\%$ per resource from $K = 70$ to $140$,
-robust to two step-size schedules). The density-growth characterization
-is open. There is no contradiction with the $O(1)$ total-gap results of
+Under the particular random instance sampler of our kernel search,
+micro-instances carry certified gaps in only ${\sim}0.03\%$ of draws
+--- a statement about that sampler, not a general rarity claim ---
+while the benchmark's proportional-scaling experiments show the
+per-resource certificate gap growing with density ($+15$~pp per
+resource from $K = 70$ to $140$ on pair~0). Two diagnostics argue this is not dual under-convergence: the
+slack is robust to two step-size schedules, and extending the $K=140$
+solve to $200$ iterations from a warm start never improves the
+incumbent bound. Still, these are consistency checks on one instance
+per cell, not proof that the growth is relaxation-structural; the
+density-growth characterization is open. There is no contradiction with the $O(1)$ total-gap results of
 \citet{brownzhang2023strength}: those hold for a fixed number of
 state-independent linking constraints, whereas here constraints number
 $\propto K$ with state-dependent participation --- the natural scaling
@@ -868,75 +1240,207 @@ for online freight.
 
 All experiments use the public benchmark's frozen
 \texttt{scenario-v0.3.2} contract
-\citep{chandrasekaran2026freightbidbench}, thirty held-out paired seeds (pairs
-1--30; the dual tables are fitted on pair~0's stream and never
-refitted), paired-bootstrap 95\% confidence intervals (20{,}000
-resamples), and two-sided sign tests. Policies: \texttt{bid\_price}
+\citep{chandrasekaran2026freightbidbench}. The \emph{headline
+comparison} uses thirty held-out paired seeds (pairs 1--30; the dual
+tables are fitted on pair~0's stream and never refitted); the scaling,
+certificate, micro, portability, and cross-fit studies each state
+their own designs below. The primary inferential procedure is the
+paired-bootstrap 95\% confidence interval (20{,}000 resamples) on the
+headline dual-versus-surrogate differences; Wilcoxon signed-rank and
+two-sided sign tests are reported as corroboration, and under a
+Bonferroni correction for the three scenarios the tight and mild
+effects still exclude zero (simultaneous 98.33\% CIs
+$[+0.14, +4.01]$ and $[+2.16, +4.69]$~pp;
+\path{scripts/analyze_trackb_results.py} regenerates them with the
+documented seed). The
+mild dual-policy rows come from a corrected rerun with fitted tables
+(the original run's zero-fallback tables are superseded); the eval
+streams are identical pair by pair, and retention is computed against
+the original run's rollout profits
+(\path{scripts/analyze_v04_results.py} performs the merge). Policies: \texttt{bid\_price}
 (future-value proxy), \texttt{surrogate\_linear} (ridge regression on
 200 rollout labels per pair, retrained per pair), \texttt{dual\_price}
-(flat-price ablation), \texttt{dual\_price\_vf} (this paper), and
-\texttt{rollout\_teacher}. Latencies in Table~\ref{tab:headline} were
-measured single-threaded on a 4-core cloud VM; absolute values are
-Python reference latencies, and the cross-policy ratios are the
-meaningful quantity.
+(terminal-ramp ablation: fitted prices with a time-ramped
+terminal-value relocation term in place of fitted
+$\widehat{W}$-gradients), \texttt{dlp\_resolve} (re-solving
+deterministic-LP bid prices, the classical comparator),
+\texttt{dual\_price\_vf} (this paper), the v0.3
+surrogate-to-rollout cascade, and
+\texttt{rollout\_teacher}. Latencies in Table~\ref{tab:headline}
+were measured single-threaded on two hosts: the baseline, surrogate,
+cascade, and rollout rows on a 4-core cloud VM; the dual-policy and
+DLP rows (rerun after later revisions) on an Apple M-series laptop,
+whose per-directory manifests record platform and Python version.
+Absolute values are Python reference latencies; ratios that span the
+two hosts are indicative only, though the three-orders-of-magnitude
+dual-policy--rollout separation remains large under plausible host
+effects
+(\path{benchmark_runs/v04_dev/seed30/PROVENANCE.md} lists which rows
+were measured where; even a several-fold host effect still leaves a
+separation in the hundreds, but the precise
+ratio should be read as indicative).
 
 \begin{table}[t]
 \centering
 \caption{Retention vs the rollout teacher over thirty held-out seed
-pairs. The last rows give the paired difference of the zero-label dual
-policy against the rollout-trained surrogate, and mean per-decision
-latency.}
+pairs, with mean per-decision latency. The two unbolded reference
+rows bracket the design space with different information demands: the re-solving
+deterministic-LP bid-price baseline (no labels; a fluid LP re-solved
+from the live fleet state at a per-scenario cadence selected on
+training streams over $\{12, 6, 3, 2, 1\}$ hours: 3, 6, and 1) and
+the v0.3
+surrogate-to-rollout cascade (200 rollout labels per pair
+\emph{and} rollout calls on escalated decisions). The last rows give
+the paired difference of the zero-label dual policy against the
+rollout-trained surrogate.}
 \label{tab:headline}
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrr}
 \toprule
-policy & tight & scarce & mild \\
+policy (latency, ms) & tight & scarce & mild \\
 \midrule
-\texttt{bid\_price} & 91.1\% & 85.9\% & 99.1\% \\
-surrogate (200 labels/pair) & 93.4\% & 91.1\% & 98.3\% \\
-\texttt{dual\_price} (flat ablation) & 91.2\% & 86.6\% & 99.1\% \\
-\textbf{\texttt{dual\_price\_vf} (zero labels)} & \textbf{95.4\%} & \textbf{90.0\%} & \textbf{101.8\%} \\
+\texttt{bid\_price} (0.001) & 91.1\% & 85.9\% & 99.1\% \\
+surrogate, 200 labels/pair (0.07--0.11) & 93.4\% & 91.1\% & 98.3\% \\
+\texttt{dual\_price} terminal-ramp ablation (0.017--0.037) & 91.2\% & 86.6\% & 99.1\% \\
+\texttt{dlp\_resolve}, no labels, tuned cadence (0.7--6.4) & 99.0\% & 98.5\% & 94.5\% \\
+\textbf{\texttt{dual\_price\_vf}, zero labels (0.017--0.038)} & \textbf{95.4\%} & \textbf{90.2\%} & \textbf{101.8\%} \\
+cascade, labels + rollout (18--30) & 98.3\% & 98.8\% & 99.5\% \\
+\texttt{rollout\_teacher} (48--112) & 100\% & 100\% & 100\% \\
 \midrule
-paired vf $-$ surrogate & $+2.0$ pp $[+0.5, +3.6]$ & $-1.0$ pp $[-3.2, +1.3]$ & $+3.5$ pp $[+2.4, +4.5]$ \\
-Wilcoxon signed-rank $p$ & 0.023 & 0.299 & $<0.001$ \\
-latency vf / surrogate / rollout (ms) & 0.059 / 0.081 / 74.5 & 0.040 / 0.075 / 48.0 & 0.035 / 0.106 / 111.7 \\
+paired vf $-$ surrogate & $+2.1$ pp $[+0.5, +3.7]$ & $-0.9$ pp $[-3.1, +1.4]$ & $+3.5$ pp $[+2.4, +4.5]$ \\
+paired vf $-$ surrogate (\$) & $+25.1$k $[+6.1, +43.8]$ & $-9.6$k $[-31.7, +13.4]$ & $+48.0$k $[+33.4, +61.8]$ \\
+Wilcoxon signed-rank $p$ & 0.019 & 0.329 & $<0.001$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
-The training-free policy beats the rollout-trained surrogate on tight
-(bootstrap CI excludes zero; Wilcoxon $p = 0.023$; the pure sign test is
+The policy is rollout-label-free, not free: it requires one offline
+dual solve on a training path --- bound-grade solves (45 iterations)
+average 118--141 minutes on four cores at benchmark scale (exact times
+in every bound summary; \path{scripts/analyze_v04_results.py} reports
+them); we have not established a smaller policy-grade budget --- but
+no teacher labels. It beats the
+rollout-trained surrogate on tight
+(bootstrap CI excludes zero; Wilcoxon $p = 0.019$; the pure sign test is
 weaker at 19/30 wins, $p = 0.20$ --- the edge is in magnitudes) and on
-mild (all three tests agree; 26/30 wins), and ties on scarce. On mild
-the policy also exceeds the rollout teacher itself (101.8\%): rollout
-is a finite-lookahead stochastic heuristic whose Monte Carlo noise
-mis-rejects at low contention, while the global price signal does not
---- the same mechanism as the $K{=}35$ scaling cell below. The flat
-ablation sits at bid-price level: the same-time gradient is the source
-of the edge, as Lemmas~\ref{lem:doublecount} and~\ref{lem:flat} predict.
+mild (all three tests agree; 26/30 wins); on scarce the difference
+is not statistically detectable ($-0.9$~pp, CI95 $[-3.1, +1.4]$ ---
+we claim no equivalence, only failure to detect a difference). On mild
+the policy also exceeds the rollout teacher itself (101.8\%) ---
+consistent with rollout's finite lookahead and Monte Carlo noise
+mis-rejecting at low contention (the same pattern as the $K{=}35$
+scaling cell below), though we have not run the rollout-budget sweep
+that would isolate that mechanism. The terminal-ramp ablation
+(\texttt{dual\_price}, which is not flat: it keeps a time-ramped
+terminal-value relocation term) sits at bid-price level, so fitted
+same-time $\widehat{W}$-gradients outperform the terminal-ramp
+heuristic --- consistent with, though not a clean isolation of, the
+gradient mechanism of Lemma~\ref{lem:flat}. The other direction of that hypothesis
+is the naive-continuation ablation
+(\texttt{dual\_price\_vf\_naive}) --- replacing the same-time
+gradient with $\widehat{W}(o, \mathrm{now})$ --- which collapses to
+$26.0$, $26.2$, and $16.7\%$ of rollout on tight, scarce, and mild
+across the full thirty-pair design
+(\path{benchmark_runs/trackb/naive30}), the double-charging failure
+predicted in \S\ref{sec:certs}.
+
+The two reference methods bracket the design space.
+\texttt{dlp\_resolve}, the classical comparator, re-solves a
+stage-aggregated fluid LP on expected demand-to-go from the live fleet
+state and applies the textbook bid-price rule
+(\path{scripts/run_dlp_resolve.py}). Its duration conventions match
+the dual policy's transition semantics: LP arc durations are nominal
+travel hours (which already include base service time) plus a
+calibrated mean schedule overhead --- waiting and deadhead, yard
+delay, and HOS rests beyond that base --- and the decision score
+reads the destination potential at the probe assignment's actual
+completion time. Its re-solve cadence is selected per scenario on the thirty
+\emph{training} streams over the grid $\{12, 6, 3, 2, 1\}$ hours
+(\path{scripts/tune_dlp_cadence.py}): 3 hours wins on tight and
+6 on scarce --- both interior winners, with finer cadences
+\emph{worse} --- and 1 hour on mild, at the grid boundary but on a
+plateau (the 1- and 2-hour training means differ by under $0.1\%$).
+The 12-hour stage width is fixed, not tuned; a finer stage model
+could shift the comparison further. We report the full sensitivity
+sweep alongside. The result is a strong baseline: at the tuned
+cadences the DLP \emph{out-earns} the dual policy on both stress
+scenarios (paired against \texttt{dual\_price\_vf}: tight
+$+3.6$~pp, CI95 $[+2.1, +5.1]$; scarce $+8.3$~pp, $[+6.8, +9.8]$) and
+loses on mild ($-7.3$~pp, $[-8.5, -6.1]$). It is also strongly
+cadence-sensitive --- at 12 hours it drops to $77.0/91.1/65.5\%$
+retention, a 7--29~pp swing --- and each re-solve epoch pays an LP
+solve. At the
+benchmark's FAF-state granularity the amortized cost is small
+(0.7--6.4\,ms \emph{mean} per-decision latency at the tuned
+cadences, versus the dual policy's 0.02--0.04\,ms) --- but the mean
+amortizes the re-solve epochs themselves, each a ${\sim}0.16$\,s
+synchronous LP solve in our runner; a decision arriving during a
+re-solve would wait unless solves run asynchronously, so the
+worst-case decision latency is the solve time, not the mean. For calibration we also record how
+\emph{this repository's dense reference simplex} scales: one solve
+grows from $0.16$\,s at 74 lanes/12 markets to $16.9$\,s at
+$8\times$ lane-table replication
+(\path{scripts/measure_dlp_resolve_cost.py}; the replicated model is
+block-diagonal and demand is not rescaled, so this times the
+reference implementation only --- it is not evidence about the
+inherent cost of re-solving on realistically refined networks, where
+sparse solvers apply). Whether continual re-solving becomes
+materially expensive at industrial network resolution is an open
+operational question, and neither method is granularity-free: the
+dual policy's offline fit and table sizes also grow with network
+resolution.
+Artifacts: \path{benchmark_runs/trackb/dlp30}, \path{dlp30_r6},
+\path{dlp30_r3}, \path{dlp30_r2}, \path{dlp30_r1}; each directory's
+manifest records its cadence. The
+honest conclusion: the dual policy does \emph{not} dominate the
+re-solving class on profit. Its distinct offer is structural: a
+static policy fitted once for deployment --- no online re-solving, no
+cadence hyperparameter, portable prices --- with the fluid-regime
+characterization of \S\ref{sec:fluid}. The certifier is a separate,
+ex-post, per-instance bound computation on the realized stream, and
+it is policy-agnostic: Table~\ref{tab:certs} certifies
+the tuned DLP itself at $62.7/61.0\%$, slightly above the dual
+policy's $60.1/57.7\%$ and just below rollout's $62.8/63.7\%$. The cascade recovers $98$--$99.5\%$ but
+needs both rollout labels and rollout calls at decision time, at
+${\sim}500\times$ the dual policy's latency: the frontier position it
+occupies is real, and so is its cost.
 
 \begin{table}[t]
 \centering
 \caption{Per-instance certificates: realized policy value over the
-instance's Lagrangian bound, across ten independently bound-solved
-instances per scenario (45-iteration solves).}
+instance's Lagrangian bound --- i.e., each entry is \emph{certified to
+achieve at least} the stated fraction of the hindsight optimum ---
+across ten independently bound-solved instances per scenario
+(45-iteration solves; parentheses are min--max over the ten
+instances). The certifier is policy-agnostic: the same bound
+certifies the dual policy, the tuned re-solving DLP, and the rollout
+teacher alike.}
 \label{tab:certs}
 \small
-\begin{tabular}{lrr}
+\begin{tabular}{lrrr}
 \toprule
- & \texttt{dual\_price\_vf} & \texttt{rollout\_teacher} \\
+ & \texttt{dual\_price\_vf} & \texttt{dlp\_resolve} (tuned) & \texttt{rollout\_teacher} \\
 \midrule
-tight & \textbf{60.0\%} of optimal (56.9--63.6) & 62.8\% (60.5--66.8) \\
-scarce & \textbf{57.5\%} (53.4--61.5) & 63.7\% (61.2--65.3) \\
+tight & $\geq$ \textbf{60.1\%} (57.0--63.3) & $\geq$ 62.7\% (57.4--65.0) & $\geq$ 62.8\% (60.5--66.8) \\
+scarce & $\geq$ \textbf{57.7\%} (53.5--61.5) & $\geq$ 61.0\% (56.1--63.8) & $\geq$ 63.7\% (61.2--65.3) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Certificates are narrow, stable distributions; the $1000\times$-slower
-rollout teacher certifies only 2.8--6.2 pp higher, locating most of the
-certified gap in the relaxation --- consistent with
-\S\ref{sec:limits} and with the scaling diagnosis below.
+Certificates are narrow, stable distributions; the tuned re-solving
+DLP certifies 2.6--3.3~pp above the dual policy, and the
+roughly $1000\times$-slower rollout teacher only 0.1--2.7~pp above
+the DLP.
+That is the observed bound-to-policy separation for the three
+strongest tested policies. It does not bound untested policies, and it does not
+locate the true optimum between the policy value and the bound:
+attributing the certificate gap to relaxation slack versus policy
+suboptimality requires exact optima, tractable only at
+small scale (\S\ref{sec:limits} exhibits the mechanism exactly there).
+The scaling diagnosis below argues against one specific alternative
+explanation --- dual under-convergence --- without settling the
+attribution.
 Figure~\ref{fig:evidence} shows the latency--quality frontier (left)
 and the scaling decomposition (right).
 
@@ -962,13 +1466,13 @@ and the scaling decomposition (right).
 \addplot[only marks, mark=pentagon*, mark size=2.6pt, mutedink, mark options={fill=white}]
   coordinates {(0.0012,85.9)};
 \addplot[only marks, mark=diamond*, mark size=2.8pt, flatpink]
-  coordinates {(0.0575,91.2)};
+  coordinates {(0.0227,91.2)};
 \addplot[only marks, mark=diamond*, mark size=2.8pt, flatpink, mark options={fill=white}]
-  coordinates {(0.0396,86.6)};
+  coordinates {(0.0167,86.6)};
 \addplot[only marks, mark=*, mark size=2.4pt, vfblue]
-  coordinates {(0.0587,95.4)};
+  coordinates {(0.0234,95.4)};
 \addplot[only marks, mark=*, mark size=2.4pt, vfblue, mark options={fill=white}]
-  coordinates {(0.0404,90.0)};
+  coordinates {(0.0170,90.2)};
 \addplot[only marks, mark=square*, mark size=2.2pt, surteal]
   coordinates {(0.0807,93.4)};
 \addplot[only marks, mark=square*, mark size=2.2pt, surteal, mark options={fill=white}]
@@ -977,11 +1481,21 @@ and the scaling decomposition (right).
   coordinates {(74.5,100)};
 \addplot[only marks, mark=triangle*, mark size=2.8pt, rollver, mark options={fill=white}]
   coordinates {(48.0,100)};
+\addplot[only marks, mark=oplus*, mark size=2.4pt, mutedink]
+  coordinates {(1.63,99.0)};
+\addplot[only marks, mark=oplus*, mark size=2.4pt, mutedink, mark options={fill=white}]
+  coordinates {(0.67,98.5)};
+\addplot[only marks, mark=otimes*, mark size=2.4pt, rollver]
+  coordinates {(29.6,98.3)};
+\addplot[only marks, mark=otimes*, mark size=2.4pt, rollver, mark options={fill=white}]
+  coordinates {(29.0,98.8)};
 \node[font=\footnotesize, mutedink, anchor=west] at (axis cs:0.0018,88.6) {\texttt{bid\_price}};
-\node[font=\footnotesize, flatpink, anchor=north] at (axis cs:0.045,86.0) {flat ablation};
+\node[font=\footnotesize, flatpink, anchor=north] at (axis cs:0.045,86.0) {terminal-ramp};
 \node[font=\footnotesize, vfblue, anchor=south] at (axis cs:0.05,95.9) {\texttt{dual\_price\_vf}};
 \node[font=\footnotesize, surteal, anchor=west] at (axis cs:0.11,92.4) {surrogate};
 \node[font=\footnotesize, rollver, anchor=south] at (axis cs:57,100.6) {rollout};
+\node[font=\footnotesize, mutedink, anchor=south] at (axis cs:1.6,99.4) {\texttt{dlp\_resolve}};
+\node[font=\footnotesize, rollver, anchor=north] at (axis cs:24,97.9) {cascade};
 \node[font=\footnotesize, mutedink!80, anchor=south] at (axis cs:1.9,96.9) {$\approx\!1000\times$};
 \draw[mutedink!60, dashed, ->] (axis cs:0.12,96.4) -- (axis cs:38,99.4);
 \end{axis}
@@ -1013,111 +1527,330 @@ and the scaling decomposition (right).
 \caption{Left: the latency--quality frontier over thirty held-out seed
 pairs (solid marks: tight; open marks: scarce). The log axis shows what
 the tables cannot: \texttt{dual\_price\_vf} gives up 4.6--10 points of
-rollout profit to move three orders of magnitude left, and it sits
-above the rollout-trained surrogate at lower latency. Right:
+rollout profit to move three orders of magnitude left; on tight it
+sits above the rollout-trained surrogate at lower latency, on scarce
+at the surrogate's level. Right:
 proportional fleet scaling. The policy tracks rollout (dashed, top)
-while the certified fraction of the bound falls at $K = 140$ --- the
-bound loosens with density (Theorem~\ref{thm:kernel}); the policy does
-not degrade.}
+while the certified fraction of the bound falls at $K = 140$: the
+\emph{reported} gap widens under the current solver budgets
+(attribution between relaxation slack --- the mechanism
+Theorem~\ref{thm:kernel} isolates --- dual under-convergence, and
+policy loss is open); the policy does not degrade against rollout.}
 \label{fig:evidence}
 \end{figure}
 
 \begin{table}[t]
 \centering
-\caption{Proportional fleet scaling (tight economics;
-plateau-converged solves, trajectory-verified). Unlike
-Table~\ref{tab:headline}, policy
-values here are in-sample: tables are fitted from each cell's own
-solved stream, since certificates require the bound and the policy on
-the same instance.}
+\caption{Proportional fleet scaling (tight economics). The pair-0
+column reproduces the original single instance per cell (deep,
+warm-chained solves) and is \emph{in-sample} --- its tables were
+fitted from its own stream --- so it is kept strictly as a solver
+diagnostic. The fresh-seed columns are \emph{cross-fitted}: tables
+fitted from a different seed's solve of the same cell, the policy and
+rollout simulated on the evaluation seed, and the bound computed on
+that same evaluation seed --- a certificate requires the bound and
+the realized policy value on the same instance, but the tables can
+and should come from an independent stream (values aggregated by
+evaluation stream, $\pm$ are sample standard deviations, $n = 3$;
+driver script in the reproducibility appendix).
+The fresh-seed bounds are size-scaled but not convergence-matched, so
+``certified gap'' means the \emph{reported} gap at those budgets, and
+the levels are not comparable across columns.}
 \label{tab:scaling}
 \small
 \begin{tabular}{rrrrr}
 \toprule
-$K$ & bound/$K$ & policy/$K$ & policy vs rollout & certified gap \\
+$K$ & \multicolumn{2}{c}{certified gap} & \multicolumn{2}{c}{policy vs rollout} \\
+ & pair 0 & 3 fresh (cross-fit) & pair 0 & 3 fresh (cross-fit) \\
 \midrule
-35 & \$26{,}780 & \$17{,}242 & 116.6\% & 35.6\% \\
-70 & \$26{,}929 & \$16{,}970 & 93.3\% & 37.0\% \\
-140 & \$31{,}585 & \$15{,}104 & 96.9\% & 52.2\% \\
+35 & 35.6\% & 38.1 $\pm$ 1.3\% & 116.6\% & 103.9 $\pm$ 4.1\% \\
+70 & 37.0\% & 45.5 $\pm$ 1.7\% & 93.3\% & 94.2 $\pm$ 2.0\% \\
+140 & 52.2\% & 49.4 $\pm$ 1.6\% & 96.9\% & 102.1 $\pm$ 2.6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The policy is scale-robust against rollout while per-resource bound
-slack inflates at $2\times$ density (Figure~\ref{fig:evidence}, right); the level is robust to a $2\times$
-step-size schedule reset (13 aggressive iterations never improve on the
-fine-schedule bound). Rollout's latency grows $32 \to 159$\,ms over this
+The reported certificate gap widens under the current solver budgets
+(Table~\ref{tab:scaling}), and that widening replicates
+across seeds with tight dispersion; whether it persists under
+convergence-matched budgets is exactly what the pending
+common-stopping-rule extension tests. Cross-fitting (\path{scripts/run_scaling_crossfit.sh}) turns out to
+be immaterial here --- the in-sample fresh-seed values differ from
+the cross-fitted ones by at most $0.1$~pp --- but the table reports
+the cross-fitted design because only it is deployment-valid. The policy
+stays within 7\% of
+rollout at all scales, beating it at $K = 35$ in both columns and at
+$K = 140$ in the replication arm. One caveat on the gap columns: the
+fresh-seed budgets scale with instance size (15--30 iterations) but
+are not convergence-matched, and most incumbents were still improving
+at their final iterations, so the cross-$K$ gap comparison partially
+confounds density with dual convergence; we treat the density trend as
+suggestive pending a common-stopping-rule extension. The pair-0
+column's deep-solve diagnostics --- robustness to a $2\times$
+step-size schedule reset, and a warm-started extension of the
+$K = 140$ solve to 200 iterations that never improves the incumbent
+--- argue against under-convergence there, but do not separate
+relaxation slack from policy loss; for that attribution, see the exact
+micro study below. Rollout's latency
+grows $32 \to 159$\,ms over this
 range; the dual policy stays ${\sim}0.1$\,ms.
 
 \paragraph{Portability and solver budgets.} On the tested pairs,
-decisions are identical under frozen (pair-0) vs freshly solved
-(pair-1) duals on both stress scenarios
---- the finite-sample shadow of Lemma~\ref{lem:stability}'s basis
-stability. Policy quality saturates by ${\sim}15$ subgradient
-iterations; bound-grade certificates require ${\sim}45$; per-resource
-solves parallelize at $3.05\times$ on four cores.
+outcomes are identical in aggregate (equal profits and accept counts;
+we did not compare full decision sequences) under frozen (pair-0) vs
+freshly solved (pair-1) duals on both stress scenarios
+--- consistent with Lemma~\ref{lem:stability}'s basis stability.
+Bound-grade certificates require ${\sim}45$ subgradient iterations;
+the headline tables were fitted from 15--50-iteration solves, and we
+have not established a minimal policy-grade budget (no
+decision-invariance comparison across budgets is included in the
+artifacts). Per-resource solves parallelize at $3.05\times$ on four
+cores.
+
+\FloatBarrier
+\paragraph{Exact attribution at micro scale.} The certificate-gap
+attribution question is answerable exactly where the joint optimum is
+computable. On micro instances we compute four quantities on one
+objective (\path{scripts/run_joint_optimum.py}): the exact
+chain-packing LP value ($= \min_{\lambda} L$, rational simplex), the
+exact \emph{joint} accept-and-assign optimum $\Vstar$ (memoized
+exhaustive search; unlike the benchmark's hindsight DP it fixes
+neither the accept nor the dispatch rule), the exact best accept
+sequence under the benchmark's fixed dispatch rule, and the simulated
+policy. The \emph{primary design} guards against hindsight-adaptive
+construction: each instance draws a random 24-hour window over the
+horizon, thins the window's loads to $L = 20$ so arrivals span it
+(service chains of length 3--4 become feasible, and every instance
+realizes a chain of length $\geq 3$), restricts to the top-six FAF
+origin markets by an ex-ante rule of the lane data, and places $K = 3$
+trucks by the benchmark's own FAF-weighted draw --- never observing
+the realized loads. Across thirty such instances (tight and scarce,
+fifteen each), the exact rational simplex --- run over rewards and
+terminal values quantized to integer cents before every computation,
+so ``exact'' means exact over the monetary inputs, not over
+rationalized binary floats --- finds an \emph{integral}
+optimal solution (a feasible joint assignment, so
+$\min_{\lambda} L = \Vstar$ combinatorially; finding one integral
+optimum does not make the polytope integral) on 26 of 30; pooled over all instances the
+certificate gap decomposes as $0.3\%$ relaxation slack, $12.0\%$
+dispatch-rule cost, and $87.7\%$ policy accept loss. Dispatch cost is
+heterogeneous across instances (per-instance share: median $8.3\%$,
+mean $17.2\%$, max $89\%$, exactly zero on 9/30), so we report the
+distribution rather than the pooled share alone. The earlier
+stream-prefix design (thirty instances, $K = 4$--$5$ trucks placed on
+the prefix's busiest markets --- a hindsight-adaptive initial
+condition with chains of length $\leq 2$) is retained for comparison:
+there the LP is integral on 30/30 and dispatch cost pools to $14.6\%$
+(per-instance median $2.9\%$, zero on 12/30). At micro scale, under
+both designs, the certified gap is overwhelmingly money left by the
+\emph{policy}, not by the bound; whether that attribution persists at
+benchmark scale, where kernel-like contention structures have more
+room to arise, remains open.
+
+\paragraph{Portability across training realizations.} Basis
+stability (Remark~\ref{rem:portability}) predicts fitted prices are
+interchangeable across sample paths. In the \emph{tight} scenario
+(the only one tested), we fit tables from five
+independent 72-hour training realizations (the canonical stream plus
+four independent certificate-program streams) and evaluate each on the
+same twenty held-out pairs. Every arm's mean retention lands within
+$0.07$~pp of the canonical arm's $95.3\%$; on any given evaluation
+stream, swapping the training realization moves retention by
+$0.10$~pp on average and never more than $0.71$~pp. One solve prices
+many operating horizons --- across $5 \times 20$
+training--evaluation cells, not a single comparison. This is
+consistent with the basis-stability mechanism, though the benchmark
+generator violates several of Theorem~\ref{thm:fluid}'s assumptions,
+so it is consistency, not confirmation.
+
+\paragraph{A low-contention family: the theorem-inspired policy, out
+of sample.} Theorem~\ref{thm:fluid}
+and Corollary~\ref{cor:tight} cover a lane-priced, soft-margin policy
+under (A1)--(A4). We built that policy
+(\path{scripts/fit_dual_prices.py} with \texttt{--granularity lane};
+acceptance margin \$50) and a low-contention scaling family (mild
+economics, fleet/demand
+ratio raised to 10; cells at $K = 60/120/240$, three seed pairs each),
+and evaluated it \emph{out of sample}: for every ordered pair of
+seeds, tables fitted from one seed's dual solve are scored on the
+other seed's stream (\path{scripts/run_subcritical_crossfit.py}) ---
+the independence the theorem requires. Aggregated by evaluation
+stream (three independent streams, each scored under two independent
+training tables), cross-fitted certified fractions are numerically
+close to the in-sample results
+($63.7 \pm 1.0$, $59.0 \pm 3.1$, $51.0 \pm 1.2\%$ at the deepest
+solver budgets), and mean retention vs rollout is $110.6$, $104.1$,
+and $100.5\%$ (three evaluation streams per cell; at $K = 240$ one
+stream's mean falls below rollout) --- consistent with basis
+stability.
+
+Two caveats scope what this tests. First, instrumented diagnostics
+show the family is \emph{not} (A1)-subcritical: idle pools do empty,
+and 21--26\% of arrivals are blocked by the feasibility guard despite
+otherwise-accepting scores. FAF-calibrated geography has structurally
+thin markets, so ``idle mass in every market'' fails at any aggregate
+fleet ratio. Second, the scenario retains the benchmark's windows,
+HOS clocks, stochastic yard delays, and heterogeneous rewards, which
+(A2)--(A4) idealize away. This experiment is therefore a
+low-contention, out-of-sample robustness test of the
+theorem-\emph{inspired} policy, not a validation of the theorem's
+hypotheses; the assumption-matched family below tests those
+directly.
+
+\paragraph{Theorem 2 on its own terms.} Because the benchmark
+violates (A1)--(A4), we also built the idealized model the theorem
+actually analyzes and ran the paper's own pipeline on it
+(\path{scripts/run_matched_family.py}): four markets on a directed
+cycle; independent Poisson cell counts arriving at integer hour
+epochs; integer occupation time; zero within-cell reward dispersion;
+\emph{nonconstant} terminal values ($V = 500/400$ alternating), so
+fluid thresholds are $\pm\$100$, lane rents differ by lane
+($\$700$/$\$900$), and the spatial gradient is materially nonzero;
+profitable forward and unprofitable reverse lanes; $50\%$
+utilization (A1); no windows, clocks, or delays (A2 exact). Each of
+thirty train/evaluation pairs per fleet size solves the training
+realization's relaxation to numerical optimality --- the cell-level
+arc-flow LP of Lemma~\ref{lem:stability}(c) under the repository's
+float simplex, whose demand-row duals are the
+optimal sample-path prices the theorem stipulates (the benchmark uses
+a subgradient solver because its trucks are heterogeneous; this
+family's exact interchangeability degenerates the subgradient and
+makes the LP the right solver) --- fits the lane--hour table with the
+production fitter's five-pseudo-observation shrinkage rule and the
+$\widehat{W}$ recursion from that solve, and scores the
+independently solved evaluation path. Both convergence statements
+hold as predicted across $K = 48$ to $768$ ($\pm$ values are sample
+standard deviations over the thirty pairs): the certified fraction
+rises $70.2 \pm 14.8 \to 82.3 \to 91.7 \to 97.7 \to
+99.8 \pm 1.3\%$ and the per-truck gap falls
+$\$819 \to \$502 \to \$235 \to \$65 \to \$6.6$. Without
+shrinkage --- the theory-aligned sensitivity variant, since the
+theorem assumes per-cell fits --- the same curve reads
+$84.5 \pm 6.6 \to 99.9 \pm 0.6\%$
+(\path{benchmark_runs/trackb/matched_family_unshrunk.csv}):
+shrinkage biases small-$K$ prices toward lane means and slows the
+approach without changing the limit. The
+diagnostics track the theory's internal quantities: fitted-price RMSE
+against the known fluid rents falls $\$147 \to \$5$
+(Lemma~\ref{lem:stability}), the maximum $\widehat{W}$ error
+against the pinned $\omega V$ falls $\$517 \to \$10$
+(Lemma~\ref{lem:wcons}), and the fraction of evaluation paths with
+zero guard blocks rises from $0/30$ to $29/30$ --- blocking becomes
+rare but is not guaranteed absent at any finite $K$. This validates
+the theorem's mechanism on its own model; the distance between this
+family and FAF-calibrated geography is precisely the content of the
+caveats above.
+
+The certificate side stands on its own. At short solver budgets
+(15--25 iterations) the certified fractions read
+$52.4/47.5/41.6\%$; warm-extending the same solves to 60--70
+iterations lifts them to $63.7/59.0/46.2\%$, and extending the
+$K = 240$ cells to 115 iterations lifts their row to
+$51.1 \pm 1.6\%$ --- with every dual trajectory still descending.
+Reported
+certificates climb monotonically with solver effort --- the direction
+the conservativeness remark after Corollary~\ref{cor:tight}
+predicts. Any cross-$K$ comparison at a
+\emph{fixed} iteration budget confounds scale with dual convergence,
+since larger instances are further from their optimal duals at the
+same budget. The corollary's large-$K$ tightening is therefore not
+testable at these budgets: the experiment is consistent with, but
+does not confirm, asymptotic certificate tightness.
 
 \section{Discussion}
 \label{sec:discussion}
 
 \paragraph{A certificate culture for freight decisioning.} Every policy
-run on the benchmark can now report ``provably $\geq x\%$ of optimal on
-this instance.'' The certificates are conservative exactly where
-\S\ref{sec:limits} says they must be. The decomposition into policy
-loss and relaxation slack tells methods researchers where improvement
-is possible (tighter bounds) and where it is not (the policy is already
-near rollout).
+run on the benchmark can now report ``provably $\geq x\%$ of the
+hindsight optimum on this instance'' (the additive bound of
+Theorem~\ref{thm:cert} is unconditional; the \emph{fraction} is
+meaningful when the policy value and bound are positive, as they are
+in every run here). The certifier is policy-agnostic --- Table~\ref{tab:certs}
+certifies the rollout teacher and the re-solving DLP with the same
+bound --- and \S\ref{sec:limits} shows why certificates can be
+irreducibly conservative on some instance families (whether the
+benchmark's instances contain that mechanism remains open). The observable decomposition ---
+policy value, rollout value, bound --- separates what stronger
+policies of the tested classes have achieved from what remains as
+certificate gap; the exact micro study splits that remainder where the
+joint optimum is computable (relaxation slack $0$--$0.3\%$ pooled
+across the two designs; the gap is policy loss), and benchmark-scale
+attribution remains open.
 
-\paragraph{Relation to the benchmark's cascade.} The v0.3
-surrogate-to-rollout cascade \citep{chandrasekaran2026freightbidbench}
-attains about $98\%$ of rollout on these scenarios. But it needs 200
-rollout labels per stream to train, it invokes rollout on escalated
-decisions (12--17\,ms mean latency), and it carries no optimality
-statement. The dual policy trades 3--8 retention points for three
-orders of magnitude in latency, zero training data, and a certificate.
+\paragraph{Relation to the benchmark's cascade.} On the same thirty
+pairs (Table~\ref{tab:headline}), the v0.3 surrogate-to-rollout
+cascade \citep{chandrasekaran2026freightbidbench} attains
+$98.3$--$99.5\%$ of rollout. But it needs 200
+rollout labels per stream to train, and it invokes rollout on
+escalated decisions (18--30\,ms mean latency). On the stress
+scenarios the dual policy trades 3--9 retention points for
+${\sim}500\times$ lower latency and no teacher labels (on mild it
+beats the cascade outright).
 The two are complementary. Replacing the cascade's cheap stage with the
 dual policy is a natural follow-up, and we leave it to future work.
 
 \paragraph{Prices are infrastructure.} Basis stability makes the fitted
-price surface a reusable asset. One offline solve prices weeks of
-operations. There is a testable warning condition --- arrival-regime
+price surface a reusable asset: each of five training solves was
+reused unchanged across twenty evaluation streams (tight scenario)
+with at most a $0.71$~pp effect. There is a testable warning condition --- arrival-regime
 switches --- for when to refit. Per-request-learning schemes do not
 offer this property.
 
-\paragraph{Where the money is.} The remaining certified gap at scale is
-dominated by cross-resource coupling slack. Neither faster policies nor
-more solver iterations recover it. Tightening the bound itself ---
-chain-aware duals, restricted exchange constraints --- is the natural
-next methodological target, and Theorem~\ref{thm:kernel}'s kernel
-families are the test cases.
+\paragraph{Where the money is.} The exact micro study points the
+finger at the policy, not the bound: where the joint optimum is
+computable, relaxation slack is negligible in aggregate ($0.3\%$ of
+the certificate gap in the primary design, zero in the legacy design)
+and the gap is accept loss plus dispatch cost. If that attribution persists at scale, the
+next methodological target is stronger accept rules (quantile prices
+for heterogeneous rewards, Remark~\ref{rem:heterogeneous}; smarter
+dispatch) rather than tighter bounds. If instead kernel-like
+contention emerges at scale --- \S\ref{sec:limits} shows it can ---
+bound-tightening via chain-aware duals or restricted exchange
+constraints becomes the lever, with Theorem~\ref{thm:kernel}'s kernel
+families as test cases. The low-contention convergence experiment adds
+the third ingredient: certificate tightness at scale is also a
+\emph{compute} question, since reported gaps shrink monotonically with
+solver iterations.
 
 \section{Limitations}
 \label{sec:limitations}
 
 Certificates inherit the bound's looseness. In the critical regime they
-understate policy quality (Table~\ref{tab:certs}'s rollout row), and
+understate policy quality (Table~\ref{tab:certs}'s rollout column), and
 Theorem~\ref{thm:fluid} does not apply there; the critical case is
 open. Assumption (A2) folds HOS-clock renewal into the regime
 definition, and relaxing it needs a regeneration argument. The
 surrogate baseline is the benchmark's dependency-free linear model, not
-a tuned learned policy; rollout is the strong baseline. Benchmark
-caveats --- public calibration, lane concentration --- carry over from
-the v0.3 release \citep{chandrasekaran2026freightbidbench}. We defer
+a tuned learned policy; rollout is the strong baseline. All evidence
+is synthetic: the benchmark is calibrated to public data, and there
+has been \emph{no validation against real carrier operations} ---
+no operational deployment, no comparison to carrier decision logs.
+Benchmark caveats --- lane concentration among them --- carry over
+from the v0.3 release \citep{chandrasekaran2026freightbidbench}. We defer
 the online-updating variant and a learned deferral rule to future work,
 by scope discipline.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-One Lagrangian object gives two things: a microsecond, training-free,
-portable acceptance policy, and a per-instance certificate of its
-optimality gap. The theory says when the certificate is tight
-(subcritical fluid consistency, Theorem~\ref{thm:fluid}) and shows,
+One Lagrangian relaxation plays two separate roles: fitted once, it
+yields a microsecond, rollout-label-free, portable acceptance policy;
+computed ex post on a realized stream, it certifies any policy's
+optimality gap on that instance. The theory says when the
+certificate is tight (subcritical fluid consistency,
+Theorem~\ref{thm:fluid} with Corollary~\ref{cor:tight}) and shows,
 with exact certificates, why it cannot always be (kernels with
 irreducible per-resource slack, Theorem~\ref{thm:kernel}). On a public
 benchmark the policy beats a rollout-trained surrogate on two of three
-scenarios and ties the third, at three orders of magnitude lower
-latency than the teacher. We release the benchmark, the solver, the
+scenarios (no statistically detectable difference on the third), at
+roughly three orders of magnitude lower
+latency than the teacher; a cadence-tuned re-solving deterministic LP
+--- the strongest zero-label baseline once its duration conventions
+match the simulator's --- out-earns the static policy on the two
+stress scenarios, and the same ex-post certifier prices it on the
+same scale. The contribution is the characterized static policy and
+the certificate practice, not profit dominance over re-solving. We
+release the benchmark, the solver, the
 kernel search, and every table for independent verification.
 
 \section*{Declaration of Competing Interest}
@@ -1146,16 +1879,24 @@ Fleet-Coupling Estimate}
 
 This appendix proves Step~4 of Theorem~\ref{thm:fluid} in full. The
 argument is simpler than the mean-field coupling one might expect, for
-one structural reason: \emph{the dual-price policy is state-blind}. Its
-accept/reject decision depends only on the load's features and the
-clock --- never on the fleet state --- except through the feasibility
-guard, which requires one idle resource at the origin. So, as long as
+one structural reason: \emph{under the (A2)--(A4) idealization, the
+policy analyzed here is state-blind}. In the hourly model, feasible
+idle resources are homogeneous --- rest-inclusive occupation times
+renew clocks (A2) and rewards are cell-homogeneous (A4) --- so the
+score of the idealized policy depends only on the load's features and
+the clock, never on which resource serves, except through the
+feasibility guard, which requires one idle resource at the origin.
+(The \emph{deployed} policy is not literally state-blind: it scores
+the selected truck's realized profit and actual schedule completion,
+which depend on fleet and HOS state; under (A2)--(A4) those
+distinctions vanish and the two coincide.) So, as long as
 no market's idle pool is exhausted, the dispatch process is a
 deterministic thinning of the arrival stream, and there is no feedback
 loop between fleet state and decisions to control. The proof therefore
 has three parts: a uniform concentration bound on arrivals
 (Lemma~\ref{lem:conc}), an agreement lemma matching policy decisions to
-fluid decisions (Lemma~\ref{lem:agree}), and a first-violation argument
+fluid decisions (Lemma~\ref{lem:agree}), and an epoch induction with
+whole-batch concentration
 showing the idle pools never empty (Lemma~\ref{lem:track}). A value
 ledger (Proposition~\ref{prop:ledger}) then completes Steps 4--5 of the
 theorem.
@@ -1193,11 +1934,12 @@ and every fluid-served cell is served in full
 ($u_{\ell} = \Lambda_{\ell}$ on the cell).
 \end{assumption}
 
-(A3$'$) strengthens (A3) from dual uniqueness to primal
-nondegeneracy: a cell with $\bar{r} = \theta$ on an open time set
-admits a continuum of alternative primal optima, which (A3$'$)
-excludes. Note that under (A4) the dual data are constant on each
-hourly cell and all basis switches sit on hour boundaries, so
+(A3$'$) adds to (A3) --- which already assumes a unique,
+nondegenerate global optimal basis --- two cellwise conditions:
+threshold separation and full-or-zero service. A cell with
+$\bar{r} = \theta$ admits a continuum of alternative primal optima,
+which (A3$'$) excludes. Under (A4) the dual data are constant on each
+hourly cell (and the epoch LP has one global optimal basis), so
 \eqref{eq:margin} is a minimum over finitely many well-defined cells.
 
 Two conventions used throughout the appendix. \emph{Durations:}
@@ -1208,12 +1950,15 @@ $t + \tau_{\ell}$ with renewed clocks, hence feasible for any
 subsequent in-market arrival by (A2). A resource still resting at $T$
 is physically at its destination, so the model's terminal value
 $\Phi$ credits $V(\delta_{\ell})$ --- consistent with the pipeline
-term $\tilde{z}$ in \eqref{eq:fluid}. Bounded i.i.d.\ duration noise
-(yard delays) would shift completions by a bounded amount and add one
-further martingale term to Lemma~\ref{lem:conc} without structural
-change. \emph{Tables:} $\hat{\lambda}$ and $\widehat{W}$ are hourly;
-an evaluation at an off-grid time $t + \tau_{\ell}$ reads the value of
-the containing hour, as in the implementation.
+term $\tilde{z}$ in \eqref{eq:fluid}. Stochastic duration noise
+(yard delays) would move completions off the epoch grid --- the same
+off-grid aggregation gap Remark~\ref{rem:gridgap} leaves open --- so
+it is excluded by (A4), not handled here. \emph{Tables:} $\hat{\lambda}$ and $\widehat{W}$ are hourly.
+Under the grid-alignment clause of (A4) every completion time
+$t + \tau_{\ell}$ lies on the grid and advances it by at least one
+cell ($\tau_{\ell} \geq 1$); the deployed implementation, whose
+event-time completions are off-grid, reads the value of the containing
+hour.
 
 Let $\delta_K$ denote the within-cell reward dispersion of (A4) plus
 the table-fit error of Lemma~\ref{lem:stability}, so
@@ -1257,38 +2002,41 @@ Theorem~\ref{thm:fluid} is proved for the lane-granular variant.
 
 \subsection{Uniform concentration of arrivals}
 
-Work on the hourly cell grid $(\ell, h)$; there are finitely many
-cells and $|L|$ lanes. Let $N_{\ell}(t)$ count lane-$\ell$
-arrivals in $[0, t]$, a Poisson process with compensator
-$K \mu_{\ell}(t) = K \int_0^t \Lambda_{\ell}(s)\, ds$; write
+Work in the discrete-epoch model of (A4): the cell counts
+$N_{\ell h}$ are independent Poissons with means
+$K \mu_{\ell h} = K \int_h^{h+1} \Lambda_{\ell}(s)\, ds$, and all
+events happen at the $T + 1$ hour epochs, so suprema over continuous
+time reduce to maxima over epochs. Write
+$N_{\ell}(h) = \sum_{h' < h} N_{\ell h'}$ for the epoch partial
+sums, $\mu_{\ell}(h)$ for their means, and
 $\Lambda_{\max} := \max_{\ell} \sup_{t} \Lambda_{\ell}(t)$.
 
 \begin{lemma}[Uniform arrival concentration]
 \label{lem:conc}
 Let $E_1$ be the event
 \begin{equation}
-  \sup_{\ell \in L}\; \sup_{t \leq T}\;
-  \bigl| N_{\ell}(t) - K \mu_{\ell}(t) \bigr|
+  \max_{\ell \in L}\; \max_{h \leq T}\;
+  \bigl| N_{\ell}(h) - K \mu_{\ell}(h) \bigr|
   \;\leq\; a_K \;:=\; \sqrt{6\, \Lambda_{\max} T\, K \log K}.
 \end{equation}
 Then $\Pr(E_1) \geq 1 - O(K^{-2})$.
 \end{lemma}
 
 \begin{proof}
-\emph{Step 1.} $N_{\ell}(t) - K\mu_{\ell}(t)$ is a martingale with
-jumps of size $1$ and predictable quadratic variation
-$K\mu_{\ell}(t) \leq K \Lambda_{\max} T$.
+\emph{Step 1.} Each partial sum $N_{\ell}(h)$ is Poisson with mean
+$K \mu_{\ell}(h) \leq K \Lambda_{\max} T$.
 
-\emph{Step 2.} Freedman's inequality
-\citep{freedman1975tail}, in its continuous-time form for
-counting-process martingales \citep{vandegeer1995exponential}, gives,
-for each lane,
-$\Pr\bigl(\sup_{t \leq T} |N_{\ell}(t) - K\mu_{\ell}(t)| \geq a\bigr)
-\leq 2 \exp\bigl( -a^2 / (2 K \Lambda_{\max} T + 2a/3) \bigr)$.
+\emph{Step 2.} The Poisson Bernstein bound gives, for each lane and
+epoch,
+$\Pr\bigl( |N_{\ell}(h) - K\mu_{\ell}(h)| \geq a \bigr)
+\leq 2 \exp\bigl( -a^2 / (2 K \Lambda_{\max} T + 2a/3) \bigr)$
+(equivalently, Freedman's inequality \citep{freedman1975tail} for the
+discrete-time martingale of partial sums).
 
-\emph{Step 3.} Take $a = a_K$: the exponent is at most $-2 \log K$ for
-$K$ large. A union bound over the $|L|$ lanes gives
-$\Pr(E_1^c) \leq 2 |L| K^{-2} = O(K^{-2})$.
+\emph{Step 3.} Take $a = a_K$: the exponent is at most
+$-3 \log K + o(\log K)$ for $K$ large. A union bound over the
+$|L| (T + 1)$ lane--epoch pairs --- a constant independent of $K$ ---
+gives $\Pr(E_1^c) = O(K^{-2})$.
 \end{proof}
 
 \subsection{The value-to-go table is consistent}
@@ -1331,7 +2079,10 @@ $\theta_{\ell h} = \omega [V(o_{\ell}) - V(\delta_{\ell})]$ under the
 pinning of Lemma~\ref{lem:flat}, the branch is at most
 $\omega V(o_{\ell}) + \delta_K + \epsilon(t + \tau_{\ell})$.
 
-\emph{Step 4 (recursion).} Combining,
+\emph{Step 4 (recursion).} Every dispatch branch lands strictly later
+on the grid --- $\tau_{\ell} \geq 1$ by the grid-alignment clause of
+(A4), so $t + \tau_{\ell} \geq t + 1$ and the induction is
+well-founded. Combining,
 $\epsilon(t) \leq \max_{s > t} \epsilon(s) + 2 \delta_K$, and backward
 induction over the at most $T$ grid steps gives
 $\epsilon(t) \leq 2 T \delta_K$. The gradient statement follows from
@@ -1351,7 +2102,7 @@ $|g(\ell, h) + \theta_{\ell h}| \leq \delta_K$
 every cell, and $\Pr(E_2) = 1 - o(1)$. Note $E_2$ is a single event
 about the frozen tables --- it is not re-drawn per decision. By the
 hour-grid clause of (A4), every cell lies strictly inside one dual
-regime: there are no cells straddling a basis switch.
+regime: the dual data are constant on every cell.
 
 \begin{lemma}[Decision agreement]
 \label{lem:agree}
@@ -1389,77 +2140,105 @@ large. The policy rejects.
 
 \subsection{Occupancy tracks the fluid; no forced rejections}
 
-Let $X_m(t)$ be the number of idle resources in market $m$ at time
-$t$, with deterministic proportional initial placement, so
-$X_m(0) = K z^0_m + O(1)$ (rounding only). Let $S_{\ell}(t)$ count
-dispatches on lane $\ell$ by time $t$. Define the deviation
+Let $X^{-}_m(h)$ be the number of idle resources in market $m$ at
+epoch $h$ after completions release and before the batch is processed
+(Remark~\ref{rem:hourlyreading}), and $X^{+}_m(h)$ the count after
+the batch; deterministic proportional initial placement gives
+$X^{-}_m(0) = K z^0_m + O(1)$ (rounding only). Let $S_{\ell}(h)$
+count dispatches on lane $\ell$ in batches $0, \dots, h$. Define the
+deviation
 \begin{equation}
-  D(t) \;=\; \sum_{m} \bigl| X_m(t) - K z_m(t) \bigr|,
+  D(h) \;=\; \sum_{m} \bigl| X^{-}_m(h) - K z^{-}_m(h) \bigr|,
 \end{equation}
-and the first-violation time
-$\tau^{\star} = \inf\{ t : \min_m X_m(t) < z_{\min} K / 2 \}$.
+comparing pre-batch stochastic inventory with the pre-batch fluid
+inventory $z^{-}_m(h)$ of \eqref{eq:epochlp} (at $h = H$ there are
+no dispatches, so $z^{-}_m(H) = z_m(H)$).
 
 \begin{lemma}[Occupancy tracking]
 \label{lem:track}
 On $E_1 \cap E_2$, for all $K$ large:
-$\sup_{t \leq T} D(t) \leq C \sqrt{K \log K}$ and
-$\tau^{\star} > T$. In particular no accepted arrival is ever rejected
+$\max_{h \leq T} D(h) \leq C \sqrt{K \log K}$, and at every epoch
+and every position within every batch the arrival's origin pool is
+nonempty. In particular no accepted arrival is ever rejected
 for lack of an idle resource, and under (A2) every accepted arrival is
 served.
 \end{lemma}
 
 \begin{proof}
+By induction over epochs. The induction hypothesis $H(h)$: in every
+batch before epoch $h$, exactly the fluid-served cells' arrivals were
+dispatched (none was blocked), and the epoch deviations satisfy the
+stated bound up to $h$.
+
 \emph{Step 1 (flow identity).} Idle counts change only by dispatches
 out and service completions in:
 \begin{equation}
-  X_m(t) = X_m(0)
-  + \sum_{\ell:\, \delta_{\ell} = m} S_{\ell}\bigl( (t - \tau_{\ell})_+ \bigr)
-  - \sum_{\ell:\, o_{\ell} = m} S_{\ell}(t).
+  X^{-}_m(h) = X^{-}_m(0)
+  + \sum_{\ell:\, \delta_{\ell} = m} S_{\ell}(h - \tau_{\ell})
+  - \sum_{\ell:\, o_{\ell} = m} S_{\ell}(h - 1),
 \end{equation}
-The fluid mass $z_m(t)$ satisfies the same identity with
-$K \int u_{\ell}$ in place of $S_{\ell}$
-(equation~\eqref{eq:fluid}).
+with $S_{\ell}$ vanishing at negative indices.
+The pre-batch fluid mass $z^{-}_m(h)$ satisfies the same
+cumulative identity with $K \sum u_{\ell}$ in place of $S_{\ell}$
+(unrolling the balance rows of \eqref{eq:epochlp}).
 
-\emph{Step 2 (dispatches are thinned arrivals before $\tau^{\star}$).}
-For $t < \tau^{\star}$ every origin market has an idle resource
-($z_{\min} K/2 \geq 1$), so by Lemma~\ref{lem:agree} the dispatch
-process on lane $\ell$ is exactly the arrival process restricted to
-fluid-served cells. Given the frozen tables, the accept set is a
-deterministic union of cells --- acceptance is all-or-nothing per cell
-under (A4) homogeneity --- so this thinning is adapted: no decision
-peeks at the future. Since the fluid serves the full arrival mass of
-served cells (Assumption~\ref{ass:sep}),
+\emph{Step 2 (dispatches are thinned arrivals under $H(h)$).} Under
+$H(h)$, the dispatch counts entering Step~1's identity at epoch $h$
+are exactly the arrival counts of fluid-served cells: the accept set
+is a deterministic union of cells given the frozen tables ---
+acceptance is all-or-nothing per cell under (A4) homogeneity
+(Lemma~\ref{lem:agree}) --- and no arrival in those cells was
+blocked. This thinning is adapted (no decision peeks at the future),
+and the fluid serves the full arrival mass of served cells
+(Assumption~\ref{ass:sep}), so Lemma~\ref{lem:conc} gives
 \begin{equation}
-  \sup_{s \leq t}\,
-  \bigl| S_{\ell}(s) - K \textstyle\int_0^s u_{\ell} \bigr|
-  \;\leq\; C_1\, a_K,
+  \max_{h' < h}\,
+  \bigl| S_{\ell}(h') - K \textstyle\sum_{h'' \leq h'} u_{\ell}(h'') \bigr|
+  \;\leq\; C_1\, a_K
 \end{equation}
-by Lemma~\ref{lem:conc}, where the constant $C_1$ absorbs the
-conversion from initial-segment deviations to the finitely many
+--- strictly before the current batch, which $H(h)$ covers; once
+Step~4 certifies batch $h$, the same bound extends through $h$ and
+feeds the next induction step. Step~1's identity at epoch $h$ only
+consumes dispatch counts at indices $\leq h - 1$
+($\tau_{\ell} \geq 1$), so this suffices; the constant $C_1$ absorbs
+the conversion from initial-segment deviations to the finitely many
 served-cell intervals.
 
-\emph{Step 3 (deviation bound).} Plug Step~2 into Step~1: each
-$X_m(t) - K z_m(t)$ is a signed sum of at most $2|L|$ dispatch
-deviations plus the $O(1)$ initial rounding error (deterministic
-proportional placement), so for $t < \tau^{\star}$,
+\emph{Step 3 (deviation bound at epoch $h$).} Plug Step~2 into
+Step~1: $X^{-}_m(h) - K z^{-}_m(h)$ is a signed sum of at most $2|L|$
+dispatch deviations plus the $O(1)$ initial rounding error, so
 \begin{equation}
-  D(t) \;\leq\; 2 |M| \, |L| \, C_1\, a_K + O(1)
+  D(h) \;\leq\; 2 |M| \, |L| \, C_1\, a_K + O(1)
   \;=\; O\bigl( \sqrt{K \log K} \bigr).
 \end{equation}
 
-\emph{Step 4 (no violation).} Suppose $\tau^{\star} \leq T$. Just
-before $\tau^{\star}$, Step~3 and (A1) give
+\emph{Step 4 (the whole batch at epoch $h$ is safe).} Within batch
+$h$, pools only decrease, and the total decrement at market $m$ ---
+no matter which prefix of the batch has been processed --- is at most
+the batch's fluid-served arrival count at $m$. A single batch count
+is a difference of two cumulative counts, so its deviation is at most
+$2 a_K$ per lane on $E_1$; summing over $m$'s outbound lanes, the
+decrement is at most
+$K \sum_{\ell: o_{\ell} = m} u_{\ell}(h) + C_2 a_K$ with
+$C_2 = 2|L|$ (rejected cells never decrement a pool: their scores
+reject regardless of pool state). Hence every within-batch prefix
+inventory is at least
 \begin{equation}
-  \min_m X_m(\tau^{\star-})
-  \;\geq\; z_{\min} K - D(\tau^{\star-})
+  X^{-}_m(h) - K \textstyle\sum_{\ell: o_{\ell} = m} u_{\ell}(h)
+  - C_2 a_K
+  \;\geq\; K z_m(h) - D(h) - C_2 a_K
   \;\geq\; z_{\min} K - O(\sqrt{K \log K})
-  \;>\; \tfrac{3}{4} z_{\min} K
+  \;>\; 0
 \end{equation}
-for $K$ large. A single arrival changes any
-$X_m$ by one, so $X$ cannot jump from above
-$\tfrac{3}{4} z_{\min} K$ to below $\tfrac{1}{2} z_{\min} K$:
-contradiction. Hence $\tau^{\star} > T$, and Steps 2--3 hold on all of
-$[0, T]$.
+for $K$ large --- the first inequality uses
+$X^{-}_m(h) \geq K z^{-}_m(h) - D(h)$ and
+$z^{-}_m(h) - \sum_{\ell: o_{\ell}=m} u_{\ell}(h) = z_m(h)$, the
+second the post-batch clause of (A1). No pool empties at
+any position inside batch $h$, so no arrival is blocked, every
+fluid-served arrival is dispatched, and $H(h{+}1)$ holds. The
+induction needs no first-violation device: the prefix bound is
+uniform over the batch because the worst-case decrement is the whole
+batch's served mass, independent of which loads have been processed.
 \end{proof}
 
 \subsection{The value ledger}
@@ -1479,11 +2258,13 @@ $\mathbb{E}[\text{value}^2] = O(K^2)$ (Poisson second moment) and
 $\Pr(E_1^c) = O(K^{-2})$ (Lemma~\ref{lem:conc}) gives
 $\mathbb{E}[|\text{value}|\,\mathbf{1}_{E_1^c}]
 \leq (\mathbb{E}\,\text{value}^2)^{1/2} \Pr(E_1^c)^{1/2}
-= O(K) \cdot O(K^{-1}) = o(K)$. Against $E_2^c$: $E_2$ concerns only
-the training path, independent of the evaluation path, so
+= O(K) \cdot O(K^{-1}) = o(K)$. Against $E_2^c$: the realized value depends on the training path
+through the tables, but its envelope
+$r_{\max} N + \omega V_{\max} K$ depends only on the evaluation
+path and is independent of $E_2$, so
 $\mathbb{E}[|\text{value}|\,\mathbf{1}_{E_2^c}]
-= \mathbb{E}[|\text{value}|] \cdot \Pr(E_2^c) = O(K) \cdot o(1)
-= o(K)$. Hence
+\leq (r_{\max} \mathbb{E}[N] + \omega V_{\max} K) \Pr(E_2^c)
+= O(K) \cdot o(1) = o(K)$. Hence
 $V^{\pol^{\varepsilon}}(K) \geq
 \mathbb{E}\bigl[ \text{value} \cdot \mathbf{1}_{E_1 \cap E_2} \bigr]
 - o(K)$.
@@ -1495,18 +2276,21 @@ $O(\sqrt{K \log K})$ per lane. With rewards bounded by $r_{\max}$ and
 within-cell dispersion $\delta_K$,
 \begin{equation}
   \sum_{\text{served}} r
-  \;\geq\; K \int_0^T \sum_{\ell} \bar{r}_{\ell} u_{\ell}\, dt
+  \;\geq\; K \sum_{h < H} \sum_{\ell} \bar{r}_{\ell}(h)\, u_{\ell}(h)
   \;-\; r_{\max}\, O(\sqrt{K \log K})
   \;-\; \delta_K\, O(K).
 \end{equation}
 
 \emph{Step 3 (terminal value).} The realized terminal value credits
 idle resources at their market and in-transit resources at their
-destination, matching $\tilde{z}$ in \eqref{eq:fluid}. The idle part
-deviates from $\omega \sum_m V(m) K z_m(T)$ by at most
-$\omega V_{\max} D(T)$; the in-transit part per lane is
-$S_{\ell}(T) - S_{\ell}(T - \tau_{\ell})$, which tracks the fluid
-pipeline mass $K \int_{T - \tau_{\ell}}^{T} u_{\ell}$ within twice the
+destination, matching the epoch LP's terminal terms in
+\eqref{eq:epochlp}. The idle part
+deviates from $\omega \sum_m V(m) K z_m(H)$ by at most
+$\omega V_{\max} D(H)$; the in-transit part per lane is
+$S_{\ell}(H{-}1) - S_{\ell}(H - \tau_{\ell})$ (batches end at
+$H{-}1$), which tracks the fluid
+pipeline mass
+$K \sum_{h > H - \tau_{\ell}} u_{\ell}(h)$ within twice the
 dispatch deviation of Lemma~\ref{lem:track}, Step~2. Both errors are
 $O(\sqrt{K \log K})$.
 
@@ -1518,15 +2302,16 @@ Hence $V^{\pol^{\varepsilon}}(K) \geq V_f K - o(K)$.
 
 \begin{remark}[Why no mean-field analysis is needed]
 \label{rem:whynochaos}
-The proof never couples interacting particles: state-blindness of the
-dual-price policy removes the feedback from fleet state to decisions,
-so the only interaction channel is the feasibility guard, which
-subcriticality (A1) keeps inactive with high probability. This is a
+The proof never couples interacting particles: under (A2)--(A4) the
+idealized dual-price policy is state-blind, which removes the feedback
+from fleet state to decisions, so the only interaction channel is the
+feasibility guard, which subcriticality (A1) keeps inactive with high
+probability. This is a
 structural advantage of price-based policies over state-feedback
 policies (e.g., rollout), for which the corresponding limit theorem
 does require a propagation-of-chaos argument. It also localizes
-exactly what breaks in the critical regime: $\tau^{\star} \leq T$
-becomes likely, forced rejections re-introduce state feedback, and the
+exactly what breaks in the critical regime: post-batch pools can
+empty, forced rejections re-introduce state feedback, and the
 gradient rule loses its complementary-slackness status
 (\S\ref{sec:limits}).
 \end{remark}
@@ -1543,7 +2328,35 @@ tables are under \path{benchmark_runs/v04_dev/seed30_mild_fitted/}), price/value
 (\path{scripts/fit_dual_prices.py}, \path{scripts/fit_value_togo.py}),
 scaling cells (\path{configs/freightbidbench_v04_dev_scaling.json}),
 kernel search with exact certificates
-(\path{scripts/find_gap_kernel.py}). The public v0.4 contract
+(\path{scripts/find_gap_kernel.py}). The revision experiments: exact
+micro attribution (\path{scripts/run_joint_optimum.py}; the primary
+design uses \texttt{--window-hours 24 --top-markets 6}), the
+re-solving DLP baseline (\path{scripts/run_dlp_resolve.py}, policy
+\texttt{dlp\_resolve}; the re-solve cadence is set with
+\texttt{FREIGHTBID\_DLP\_RESOLVE\_HOURS=\{12,6,3,2,1\}} around
+\path{scripts/run_dual_price_experiment.py} into
+\path{benchmark_runs/trackb/dlp30\{,_r6,_r3,_r2,_r1\}}, each
+directory carrying a \path{manifest.json} with its cadence and
+platform, and the cadence is selected on training streams by
+\path{scripts/tune_dlp_cadence.py}), the cross-fitted scaling cells
+(\path{scripts/run_scaling_crossfit.sh}, artifact
+\path{benchmark_runs/trackb/scaling_crossfit/}), the
+assumption-matched family
+(\path{scripts/run_matched_family.py}; primary artifact
+\path{benchmark_runs/trackb/matched_family.csv}, and the
+\texttt{--no-shrinkage} sensitivity variant to
+\path{benchmark_runs/trackb/matched_family_unshrunk.csv}),
+lane-granular fitting
+(\texttt{--granularity lane}), the soft margin (environment variable
+\texttt{FREIGHTBID\_ACCEPT\_MARGIN}), and the subcritical family
+(\path{configs/freightbidbench_v041_subcritical.json}); their
+artifacts live under \path{benchmark_runs/trackb/} (portability,
+multi-seed scaling, cascade and DLP thirty-pair runs, subcritical
+solves with warm-start extensions, exact micro decompositions);
+their statistics regenerate via
+\path{scripts/analyze_trackb_results.py}, and the headline tables via
+\path{scripts/analyze_v04_results.py}. The
+public v0.4 contract
 (\path{configs/freightbidbench_v04_scenarios.json},
 \texttt{policy-set-v0.4.0}) includes both dual policies in the default
 policy set; artifacts under \path{benchmark_runs/v04_dev/}; manifests

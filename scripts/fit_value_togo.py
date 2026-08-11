@@ -4,14 +4,22 @@ Runs a backward Bellman recursion on the (market, hour) grid over a realized
 load stream, with each load's reward netted by its converged Lagrangian dual
 price. The result approximates the per-truck value-to-go of the Lagrangian
 sub-MDP on an aggregated state (location, availability time), dropping HOS
-clocks. The `dual_price_vf` policy branch scores decisions by
-`profit - lambda_hat + W(dest, t_done) - W(origin, now)`.
+clocks. The `dual_price_vf` policy branch scores decisions with the
+same-time spatial gradient,
+`profit - lambda_hat + W(dest, t_done) - W(origin, t_done)`:
+both endpoints are evaluated at the completion time, so the table
+prices only the change of place (the busy-time cost is priced once,
+by lambda_hat).
 
 Recursion, processed from the horizon backward:
     W(m, T) = omega * V(m)                                   (terminal value)
     W(m, t) = max( W(m, t+1),                                (wait)
                    max over loads at hour t from origin m of
-                       fresh_profit - lambda_load + W(dest, ceil(t + tt)) )
+                       net_profit - lambda_load + W(dest, ceil(t_done)) )
+where net_profit nets deadhead and expected yard-delay costs
+(feas.realized_profit) and t_done is the fresh-truck schedule's
+rest-inclusive final available time (feas.plan_schedule) --- the same
+reward and transition as the Lagrangian sub-MDP.
 
 Dependency-free. Usage mirrors fit_dual_prices.py:
     python3 scripts/fit_value_togo.py \
@@ -33,6 +41,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import freight_feasibility as feas  # noqa: E402
 import run_closed_loop_baselines as base  # noqa: E402
 import run_lagrangian_bound as lag  # noqa: E402
 import run_surrogate_cascade as sc  # noqa: E402
@@ -78,9 +87,23 @@ def fit_value_togo(
                 if str(load["origin_state"]) != market:
                     continue
                 lam = duals.get(int(load["load_id"]), 0.0)
-                fresh_profit = float(load["price"]) - float(load["direct_cost"])
+                # Net profit and completion time from the same
+                # feasibility layer the sub-MDP uses: realized_profit
+                # nets deadhead and yard-delay costs, and the fresh-
+                # truck schedule gives the actual next-available time
+                # (rests and service included), not the nominal
+                # linehaul duration.
+                fresh_profit = feas.realized_profit(load)[0]
+                schedule = feas.plan_schedule(
+                    feas.TruckState("probe", market, float(hour)),
+                    load,
+                    float(hour),
+                )
+                if not schedule.feasible:
+                    continue
                 done = min(
-                    horizon, int(math.ceil(hour + float(load["travel_hours"])))
+                    horizon,
+                    int(math.ceil(schedule.final_available_time)),
                 )
                 candidate = (
                     fresh_profit

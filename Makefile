@@ -158,7 +158,11 @@ paper-trb-pdf:
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_trb2027.tex
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_trb2027.tex
 
-paper-pdf:
+# paper-pdf builds the CURRENT paper (the v0.4 methods paper); the
+# historical v0.2 build keeps its own target below.
+paper-pdf: paper-v04-pdf
+
+paper-v02-pdf:
 	cd papers && mkdir -p build
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v02_benchmark_paper.tex
 	cd papers && bibtex build/freightbidbench_v02_benchmark_paper
@@ -171,3 +175,11 @@ paper-v04-pdf:
 	cd papers && bibtex build/freightbidbench_v04_methods_paper
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v04_methods_paper.tex
 	cd papers && pdflatex -interaction=nonstopmode -halt-on-error -output-directory=build freightbidbench_v04_methods_paper.tex
+
+paper-transsci-pdf:
+	cd papers && mkdir -p build
+	cd papers && python3 build_transsci_variant.py freightbidbench_v04_methods_paper.tex build/freightbidbench_v04_transsci.tex
+	cd papers/build && pdflatex -interaction=nonstopmode -halt-on-error freightbidbench_v04_transsci.tex
+	cd papers/build && BIBINPUTS=..: bibtex freightbidbench_v04_transsci
+	cd papers/build && pdflatex -interaction=nonstopmode -halt-on-error freightbidbench_v04_transsci.tex
+	cd papers/build && pdflatex -interaction=nonstopmode -halt-on-error freightbidbench_v04_transsci.tex

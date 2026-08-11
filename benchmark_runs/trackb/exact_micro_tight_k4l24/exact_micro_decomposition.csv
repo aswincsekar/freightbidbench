@@ -1,0 +1,11 @@
+scenario,seed,trucks,loads,window_hours,top_markets,window_start,max_chain_len,lp_bound,lp_integral_optimum,v_joint,v_fixed,v_policy,relaxation_slack,dispatch_cost,accept_loss
+freightbidbench_tight_capacity,20260509,4,24,0.0,0,0.00,2,7318.37,1,7318.37,7318.37,5528.74,0.00,0.00,1789.63
+freightbidbench_tight_capacity,20260511,4,24,0.0,0,0.00,2,12179.48,1,12179.48,12029.03,9458.23,0.00,150.45,2570.80
+freightbidbench_tight_capacity,20260513,4,24,0.0,0,0.00,2,11558.44,1,11558.44,11558.44,9554.26,0.00,0.00,2004.18
+freightbidbench_tight_capacity,20260515,4,24,0.0,0,0.00,2,12358.05,1,12358.05,12274.96,6770.96,0.00,83.09,5504.00
+freightbidbench_tight_capacity,20260517,4,24,0.0,0,0.00,2,15087.56,1,15087.56,14933.39,12291.45,0.00,154.17,2641.94
+freightbidbench_tight_capacity,20260519,4,24,0.0,0,0.00,2,14785.04,1,14785.04,14785.04,9912.05,0.00,0.00,4872.99
+freightbidbench_tight_capacity,20260521,4,24,0.0,0,0.00,2,15863.20,1,15863.20,15863.20,11647.09,0.00,0.00,4216.11
+freightbidbench_tight_capacity,20260523,4,24,0.0,0,0.00,2,10723.20,1,10723.20,10647.17,8714.40,0.00,76.03,1932.77
+freightbidbench_tight_capacity,20260525,4,24,0.0,0,0.00,2,13589.64,1,13589.64,13311.91,11038.84,0.00,277.73,2273.07
+freightbidbench_tight_capacity,20260527,4,24,0.0,0,0.00,2,15555.64,1,15555.64,15048.64,11760.60,0.00,507.00,3288.04

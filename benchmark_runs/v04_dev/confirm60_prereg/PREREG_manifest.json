@@ -1,0 +1,73 @@
+{
+ "purpose": "Pre-result manifest for the locked confirmation run (pairs 31-60). Written BEFORE any confirmation result was observed. The revision tree is uncommitted at freeze time; these hashes are the freeze record and must match the eventual v0.4.2 commit.",
+ "created_utc": "2026-08-11T05:08:52+00:00",
+ "hash_convention": "sha256 of file bytes with CRLF normalized to LF (the lanes CSV carries CRLF on one host; csv.DictReader parses both identically)",
+ "design": {
+  "pairs": "31-60 (pair k: train seed 20260506+2k, eval +1)",
+  "scenarios": [
+   "tight",
+   "scarce",
+   "mild"
+  ],
+  "policies": [
+   "bid_price",
+   "surrogate_linear",
+   "dual_price",
+   "dual_price_vf",
+   "rollout_teacher"
+  ],
+  "extra_arms": {
+   "dlp_resolve": {
+    "tight": "3h",
+    "scarce": "6h",
+    "mild": "1h"
+   },
+   "dual_price_vf_naive": "all scenarios"
+  },
+  "label_limit": 200,
+  "primary_inference": "paired bootstrap CI95 (20k resamples, seed 20260701) on dual_price_vf - surrogate_linear per scenario; Bonferroni 98.33% simultaneous across scenarios",
+  "analysis_scripts": [
+   "scripts/analyze_v04_results.py",
+   "scripts/analyze_trackb_results.py"
+  ],
+  "runner": "scripts/run_dual_price_experiment.py on the VM (~/fbb_trackb), code and tables rsynced from this tree before queuing"
+ },
+ "sha256_lf_normalized": {
+  "configs/freightbidbench_v03_scenarios.json": "de1c4d402951746ce5aaefc80c447fc926560d484d9ac53e535fa81770165739",
+  "data/processed/dual_price_tables.csv": "4d1da923418bf15af93c4a328ce6bb4ca7bcf8ad164f17f064587fff55cbac08",
+  "data/processed/dual_value_togo.csv": "684b5489f359d591f2fc418a5eaa330ecd5fa495d212a415153c4710ad6dae8b",
+  "data/processed/v1_usda_faf_mapped_lanes.csv": "b34c145a001d7c46add821c89a646c005bef269cae42b7631da668dae26111bd",
+  "scripts/aggregate_scaling_crossfit.py": "96e1fbe0f4f9ebd1f138f1b78953cbfc574da8a5e0e0b2913a314d8ea57359ac",
+  "scripts/analyze_calibration.py": "389cc6272427e66a542e2e47b11378e866e27a5ead0fa0c67c8bc10e487ee591",
+  "scripts/analyze_policy_deltas.py": "3bbea276a73f3c4d9da87c992ee22a2d6b5486e544389d75ffd13728e068fcd6",
+  "scripts/analyze_trackb_results.py": "595b9cd07b2a95eb7de27e46edd7867befc85725d80db027cfdf3145d86ea67c",
+  "scripts/analyze_v04_results.py": "4679c2f06431908cad08e946a6100eaefec3c9f91ffe75286aed5775b7d83763",
+  "scripts/assemble_v03_paper_tables.py": "2f7829d509af92ab89da388c9c3a2277e5385e285e17d78242e3668745431058",
+  "scripts/find_gap_kernel.py": "48d0417495d60d664323c7d075f08f7a51027f15e441bca1e9efd7f651c98ee0",
+  "scripts/fit_dual_prices.py": "05bd319215d2e3628cc40a39be98e7dbf180705ffcfc21cf9460185f118d3e5e",
+  "scripts/fit_value_togo.py": "70d4196acefcaf039a7675f9d32940d9f04999a685db829a813cfbc6e2951c85",
+  "scripts/freight_feasibility.py": "9c482276b54bc524f6ee03fa494721489c194dfa5b6a54fae07f3485a6d158bd",
+  "scripts/inspect_public_sources.py": "e25318821bff9dcee80e3af127c175947494f4bbd7c427c8b4ca38a0b0c4c33c",
+  "scripts/measure_dlp_resolve_cost.py": "85fcce4a17dab16f552f2e92cce826b4adc0da1261be1f591ca91ee8d89200ea",
+  "scripts/plot_freightbidbench.py": "3084548f2e863dd383db24821a2c87e77d2e7b7b25347da8ae4b858cc2208383",
+  "scripts/run_closed_loop_baselines.py": "3b57c79fc380e03a174e9083ce2208ba747347eba6777f20ce076bb3535432db",
+  "scripts/run_demand_wave_sweep.py": "4b8f33fab0101cb5dbb515f0253566e726529751530a3cacd78453f946740532",
+  "scripts/run_dlp_resolve.py": "237a8047be85148089ac0f39dfa69e4fdb4d92a8209583b620a33ff9301ffb9c",
+  "scripts/run_dual_price_experiment.py": "19db00b7d016413082f0cf3881be934a7d938a3c0db9a4af721005a099127b42",
+  "scripts/run_experimental_package.py": "5764a7161517fc47d89cf048d62f926b161c84d7c149a585b352ad9ae86683fa",
+  "scripts/run_feasibility_ablation_suite.py": "31a8ce446ab2b702f6013fe272b9dcbe028d843f4b0c61aae7f27cdae28d61eb",
+  "scripts/run_freightbidbench.py": "76c5198ad62b4747696fcf4b6bd8cf945b77923c7dc4f7e2d33c2bdb63f47ea9",
+  "scripts/run_hindsight_bound.py": "88418704c61f2be694f3943e9bdf12871031ad567f7838fc3e72286567dc15c8",
+  "scripts/run_joint_optimum.py": "844109a0fc15ff758d7db5f09b6d4aaf4d67bf601bc21b915232cebeda5fac49",
+  "scripts/run_lagrangian_bound.py": "4d36656fd173dca3213824f1abe51f7957912f94726ebddabdd19a8893154ac2",
+  "scripts/run_matched_family.py": "5a4e50ffbc5a3afefc00069251f521c16f515b32bb3a4e9b6dc2d1740c6ee9c9",
+  "scripts/run_opportunity_cost_sanity.py": "c6055150c39c017945d6a477bd1e0652162ed949ea2ff25a84f9d3d5a515f9ed",
+  "scripts/run_relaxed_hindsight_bound.py": "4051c109615880a416d74c8a56b40114fc8ed09982d43d3b40094f52542ceedd",
+  "scripts/run_rollout_teacher.py": "13b655bb536bf0d3702a714f030116624b08a5912301f434b2ef2b76918504f8",
+  "scripts/run_service_failure_penalty_sweep.py": "9a7e7baf68ef2345414841a635d7a0ae50ae71e7f9afc6f1efc97c95c4c25702",
+  "scripts/run_subcritical_crossfit.py": "65f6cd2c106e43e215676f66007525bf6ac8e7e334af851aa457ac8bd3124ab8",
+  "scripts/run_surrogate_cascade.py": "a7dc59c7f028bb4a3a1da17e3975437d5e77d8408035c52de31972023d463a7e",
+  "scripts/run_terminal_value_sweep.py": "05ca3c844e8df4e33e0152611f8acce42b7a3b18c4a6da6dc326010cd236c49f",
+  "scripts/tune_dlp_cadence.py": "6335e441bc83529d0dace3ae225fa2787e818d7269aa9ba24f99b660e477cd64"
+ }
+}

@@ -1,0 +1,125 @@
+{
+ "comment": "v0.4.1 low-contention scaling cells (theorem-inspired policy, out-of-sample cross-fit). The raised aggregate fleet/demand ratio does NOT make every market's idle mass positive: FAF-calibrated geography has structurally thin markets, so (A1) fails regardless of the aggregate ratio (see the paper's low-contention experiment and scripts/run_subcritical_crossfit.py diagnostics). Not part of the public v0.4.0 contract.",
+ "benchmark_version": "freightbidbench-v0.4.1",
+ "default_first_seed": 20260506,
+ "source_inputs": {
+  "lane_table": "data/processed/v1_usda_faf_mapped_lanes.csv",
+  "state_imbalance_table": "data/processed/faf_state_imbalance_2024.csv"
+ },
+ "scenarios": {
+  "sub_x05": {
+   "name": "freightbidbench_sub_x05",
+   "horizon_hours": 72,
+   "loads_per_hour": 6,
+   "fleet_size": 60,
+   "base_cost_per_mile": 2.95,
+   "fixed_load_cost": 250.0,
+   "value_scale_dollars": 2400.0,
+   "service_failure_penalty_dollars": 10.0,
+   "terminal_value_weight": 0.25,
+   "demand_wave_schedule": {
+    "type": "price_premium_piecewise",
+    "period_hours": 24,
+    "default_multiplier": 1.0,
+    "default_price_multiplier": 1.0,
+    "segments": [
+     {
+      "start_hour": 0,
+      "end_hour": 8,
+      "multiplier": 1.0,
+      "price_multiplier": 1.0
+     },
+     {
+      "start_hour": 8,
+      "end_hour": 16,
+      "multiplier": 1.0,
+      "price_multiplier": 1.5
+     },
+     {
+      "start_hour": 16,
+      "end_hour": 24,
+      "multiplier": 1.0,
+      "price_multiplier": 1.0
+     }
+    ]
+   },
+   "purpose": "Subcritical scaling cell sub_x05: mild economics, fleet/demand ratio 10 (vs mild 7.5), for the theorem-matching experiment."
+  },
+  "sub_x1": {
+   "name": "freightbidbench_sub_x1",
+   "horizon_hours": 72,
+   "loads_per_hour": 12,
+   "fleet_size": 120,
+   "base_cost_per_mile": 2.95,
+   "fixed_load_cost": 250.0,
+   "value_scale_dollars": 2400.0,
+   "service_failure_penalty_dollars": 10.0,
+   "terminal_value_weight": 0.25,
+   "demand_wave_schedule": {
+    "type": "price_premium_piecewise",
+    "period_hours": 24,
+    "default_multiplier": 1.0,
+    "default_price_multiplier": 1.0,
+    "segments": [
+     {
+      "start_hour": 0,
+      "end_hour": 8,
+      "multiplier": 1.0,
+      "price_multiplier": 1.0
+     },
+     {
+      "start_hour": 8,
+      "end_hour": 16,
+      "multiplier": 1.0,
+      "price_multiplier": 1.5
+     },
+     {
+      "start_hour": 16,
+      "end_hour": 24,
+      "multiplier": 1.0,
+      "price_multiplier": 1.0
+     }
+    ]
+   },
+   "purpose": "Subcritical scaling cell sub_x1: mild economics, fleet/demand ratio 10 (vs mild 7.5), for the theorem-matching experiment."
+  },
+  "sub_x2": {
+   "name": "freightbidbench_sub_x2",
+   "horizon_hours": 72,
+   "loads_per_hour": 24,
+   "fleet_size": 240,
+   "base_cost_per_mile": 2.95,
+   "fixed_load_cost": 250.0,
+   "value_scale_dollars": 2400.0,
+   "service_failure_penalty_dollars": 10.0,
+   "terminal_value_weight": 0.25,
+   "demand_wave_schedule": {
+    "type": "price_premium_piecewise",
+    "period_hours": 24,
+    "default_multiplier": 1.0,
+    "default_price_multiplier": 1.0,
+    "segments": [
+     {
+      "start_hour": 0,
+      "end_hour": 8,
+      "multiplier": 1.0,
+      "price_multiplier": 1.0
+     },
+     {
+      "start_hour": 8,
+      "end_hour": 16,
+      "multiplier": 1.0,
+      "price_multiplier": 1.5
+     },
+     {
+      "start_hour": 16,
+      "end_hour": 24,
+      "multiplier": 1.0,
+      "price_multiplier": 1.0
+     }
+    ]
+   },
+   "purpose": "Subcritical scaling cell sub_x2: mild economics, fleet/demand ratio 10 (vs mild 7.5), for the theorem-matching experiment."
+  }
+ }
+}

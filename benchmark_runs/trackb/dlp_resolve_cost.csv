@@ -1,0 +1,5 @@
+replication,lanes,markets,mean_solve_seconds,stdev_solve_seconds,repeats,solver,platform,python
+1,74,12,0.156,0.015,5,"dense two-phase simplex (stdlib, Bland)",macOS-26.5-arm64-arm-64bit-Mach-O,3.14.4
+2,148,24,0.733,0.034,5,"dense two-phase simplex (stdlib, Bland)",macOS-26.5-arm64-arm-64bit-Mach-O,3.14.4
+4,296,48,2.940,0.082,5,"dense two-phase simplex (stdlib, Bland)",macOS-26.5-arm64-arm-64bit-Mach-O,3.14.4
+8,592,96,16.911,2.214,5,"dense two-phase simplex (stdlib, Bland)",macOS-26.5-arm64-arm-64bit-Mach-O,3.14.4

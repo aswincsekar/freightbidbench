@@ -97,10 +97,10 @@ Check out the release tag matching the paper you are reproducing:
 - Benchmark (v0.3): arXiv:2607.07343,
   <https://arxiv.org/abs/2607.07343> — tag `v0.3.0`
 - Certified dual-price methods (v0.4): arXiv:2607.16891,
-  <https://arxiv.org/abs/2607.16891> — tag `v0.4.0`
+  <https://arxiv.org/abs/2607.16891> — tag `v0.4.2`
 
 ```bash
-git checkout v0.4.0
+git checkout v0.4.2
 ```
 
 Repository citation metadata is in `CITATION.cff`.

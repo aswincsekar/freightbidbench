@@ -65,8 +65,19 @@ def fit_table(
     scenario: base.Scenario,
     loads: list[dict[str, object]],
     duals: dict[int, float],
+    granularity: str = "market",
 ) -> list[dict[str, object]]:
-    by_bucket: defaultdict[tuple[str, int], list[float]] = defaultdict(list)
+    """Aggregate duals into a price table.
+
+    granularity="market" (deployed default) pools by (origin, hour) with
+    shrinkage toward the origin mean. granularity="lane" keys by
+    (origin, destination, hour) with shrinkage toward the lane mean ---
+    the variant analyzed by the paper's fluid theorem, whose rents
+    depend on the destination through the threshold. Lane tables also
+    carry the market-level rows as lookup fallbacks.
+    """
+    by_bucket: defaultdict[tuple[str, str, int], list[float]] = defaultdict(list)
+    by_lane: defaultdict[tuple[str, str], list[float]] = defaultdict(list)
     by_origin: defaultdict[str, list[float]] = defaultdict(list)
     all_lambdas: list[float] = []
 
@@ -75,39 +86,56 @@ def fit_table(
         if lam is None:
             continue
         origin = str(load["origin_state"])
+        dest = str(load["destination_state"]) if granularity == "lane" else GLOBAL_ORIGIN
         hour_bucket = int(float(load["hour"])) % 24
-        by_bucket[(origin, hour_bucket)].append(lam)
+        by_bucket[(origin, dest, hour_bucket)].append(lam)
+        by_lane[(origin, dest)].append(lam)
         by_origin[origin].append(lam)
         all_lambdas.append(lam)
 
     def row(
-        origin: str, hour_bucket: int, lambda_mean: float, n_loads: int
+        origin: str, dest: str, hour_bucket: int, lambda_mean: float, n_loads: int
     ) -> dict[str, object]:
         return {
             "scenario": scenario.name,
             "origin_state": origin,
+            "dest_state": dest,
             "hour_bucket": hour_bucket,
             "lambda_mean": f"{lambda_mean:.4f}",
             "n_loads": n_loads,
         }
 
+    lane_means = {
+        lane: sum(values) / len(values) for lane, values in by_lane.items()
+    }
     origin_means = {
         origin: sum(values) / len(values) for origin, values in by_origin.items()
     }
     rows = []
-    for (origin, hour_bucket), values in sorted(by_bucket.items()):
+    for (origin, dest, hour_bucket), values in sorted(by_bucket.items()):
         n = len(values)
-        shrunk = (sum(values) + SHRINKAGE_PSEUDO_COUNT * origin_means[origin]) / (
-            n + SHRINKAGE_PSEUDO_COUNT
+        shrunk = (
+            sum(values) + SHRINKAGE_PSEUDO_COUNT * lane_means[(origin, dest)]
+        ) / (n + SHRINKAGE_PSEUDO_COUNT)
+        rows.append(row(origin, dest, hour_bucket, shrunk, n))
+    if granularity == "lane":
+        rows.extend(
+            row(origin, dest, ALL_HOURS, lane_means[(origin, dest)], len(values))
+            for (origin, dest), values in sorted(by_lane.items())
         )
-        rows.append(row(origin, hour_bucket, shrunk, n))
     rows.extend(
-        row(origin, ALL_HOURS, origin_means[origin], len(values))
+        row(origin, GLOBAL_ORIGIN, ALL_HOURS, origin_means[origin], len(values))
         for origin, values in sorted(by_origin.items())
     )
     if all_lambdas:
         rows.append(
-            row(GLOBAL_ORIGIN, ALL_HOURS, sum(all_lambdas) / len(all_lambdas), len(all_lambdas))
+            row(
+                GLOBAL_ORIGIN,
+                GLOBAL_ORIGIN,
+                ALL_HOURS,
+                sum(all_lambdas) / len(all_lambdas),
+                len(all_lambdas),
+            )
         )
     return rows
 
@@ -117,9 +145,18 @@ def write_table(path: Path, scenario_name: str, new_rows: list[dict[str, object]
     if path.exists():
         with path.open(newline="", encoding="utf-8") as handle:
             kept = [
-                row for row in csv.DictReader(handle) if row["scenario"] != scenario_name
+                {**row, "dest_state": row.get("dest_state") or GLOBAL_ORIGIN}
+                for row in csv.DictReader(handle)
+                if row["scenario"] != scenario_name
             ]
-    fieldnames = ["scenario", "origin_state", "hour_bucket", "lambda_mean", "n_loads"]
+    fieldnames = [
+        "scenario",
+        "origin_state",
+        "dest_state",
+        "hour_bucket",
+        "lambda_mean",
+        "n_loads",
+    ]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -135,6 +172,14 @@ def main() -> None:
     parser.add_argument("--eval-seed", type=int, required=True)
     parser.add_argument("--duals-csv", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--granularity",
+        choices=("market", "lane"),
+        default="market",
+        help="market: pooled (origin, hour) table (deployed default); "
+        "lane: (origin, destination, hour) table, the theorem-analyzed "
+        "variant.",
+    )
     args = parser.parse_args()
 
     with (args.config if args.config.is_absolute() else ROOT / args.config).open(
@@ -157,7 +202,7 @@ def main() -> None:
             f"{matched} of {len(duals)} duals. Check --scenario/--eval-seed."
         )
 
-    rows = fit_table(scenario, loads, duals)
+    rows = fit_table(scenario, loads, duals, granularity=args.granularity)
     write_table(
         args.output if args.output.is_absolute() else ROOT / args.output,
         scenario.name,

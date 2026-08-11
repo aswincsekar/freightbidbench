@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import math
+import os
 import random
 import statistics
 import sys
@@ -40,6 +41,13 @@ REPORT_OUT = ROOT / "reports" / "surrogate_cascade_report.md"
 TRAIN_SEED = 20260506
 EVAL_SEED = 20260507
 TARGET_SCALE = 5000.0
+# Soft acceptance margin for the dual policies: accept iff score >=
+# -ACCEPT_MARGIN. Default 0 (the deployed rule). The paper's fluid
+# theorem is stated for a positive margin (Appendix "soft acceptance
+# margin"); the theorem-matching experiment sets it via environment
+# variable so the deployed contract is untouched.
+ACCEPT_MARGIN = float(os.environ.get("FREIGHTBID_ACCEPT_MARGIN", "0.0"))
+
 DUAL_PRICE_TABLE_PATH = ROOT / "data" / "processed" / "dual_price_tables.csv"
 PREDICTION_TARGET = "rollout_incremental_value"
 CASCADE_BAND_DOLLARS = 500.0
@@ -431,13 +439,14 @@ def load_dual_price_table() -> dict[tuple[str, str, int], float]:
     """
     global _DUAL_PRICE_TABLE
     if _DUAL_PRICE_TABLE is None:
-        table: dict[tuple[str, str, int], float] = {}
+        table: dict[tuple[str, str, str, int], float] = {}
         if DUAL_PRICE_TABLE_PATH.exists():
             with DUAL_PRICE_TABLE_PATH.open(newline="", encoding="utf-8") as handle:
                 for row in csv.DictReader(handle):
                     key = (
                         str(row["scenario"]),
                         str(row["origin_state"]),
+                        str(row.get("dest_state") or "*"),
                         int(row["hour_bucket"]),
                     )
                     table[key] = float(row["lambda_mean"])
@@ -445,14 +454,24 @@ def load_dual_price_table() -> dict[tuple[str, str, int], float]:
     return _DUAL_PRICE_TABLE
 
 
-def dual_price_lambda(scenario_name: str, origin: str, hour: float) -> float:
-    """Opportunity-cost lookup with per-origin and global fallbacks."""
+def dual_price_lambda(
+    scenario_name: str, origin: str, hour: float, dest: str = "*"
+) -> float:
+    """Opportunity-cost lookup with lane, per-origin, global fallbacks.
+
+    Market-hour tables (the deployed default) carry dest_state "*", so
+    the lane keys simply miss and the chain lands on the pooled rows.
+    Lane-hour tables (fit_dual_prices.py --granularity lane, the
+    theorem-analyzed variant) resolve on the first two keys.
+    """
     table = load_dual_price_table()
     hour_bucket = int(hour) % 24
     for key in (
-        (scenario_name, origin, hour_bucket),
-        (scenario_name, origin, -1),
-        (scenario_name, "*", -1),
+        (scenario_name, origin, dest, hour_bucket),
+        (scenario_name, origin, dest, -1),
+        (scenario_name, origin, "*", hour_bucket),
+        (scenario_name, origin, "*", -1),
+        (scenario_name, "*", "*", -1),
     ):
         if key in table:
             return table[key]
@@ -524,25 +543,56 @@ def choose_action(
         assignment = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
         if not assignment.accepted:
             return False, -TARGET_SCALE, "dual_feasibility_guard"
-        lam = dual_price_lambda(scenario.name, str(load["origin_state"]), hour)
+        lam = dual_price_lambda(
+            scenario.name,
+            str(load["origin_state"]),
+            hour,
+            dest=str(load["destination_state"]),
+        )
         terminal_delta = state_values.get(
             str(load["destination_state"]), 0.0
         ) - state_values.get(str(load["origin_state"]), 0.0)
         ramp = min(1.0, hour / float(scenario.horizon_hours))
         reloc = base.terminal_value_weight(scenario) * terminal_delta * ramp
         score = assignment.profit - lam + reloc
-        return score >= 0, score, "dual_price"
+        return score >= -ACCEPT_MARGIN, score, "dual_price"
+    if policy_name == "dlp_resolve":
+        # Re-solving deterministic-LP bid-price baseline: every
+        # RESOLVE_EVERY_HOURS solve a stage-aggregated fluid LP on
+        # expected demand-to-go from the current fleet state; accept
+        # iff profit clears the potential difference (run_dlp_resolve).
+        hour = float(load["hour"])
+        assignment = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
+        if not assignment.accepted:
+            return False, -TARGET_SCALE, "dlp_feasibility_guard"
+        import run_dlp_resolve as dlp
+
+        score = dlp.dlp_score(
+            scenario,
+            lanes,
+            fleet,
+            load,
+            assignment.profit,
+            state_values,
+            done=assignment.final_available_time,
+        )
+        return score >= 0, score, "dlp_resolve"
     if policy_name == "dual_price_vf":
         # Value-function dual policy: price the current load's slot with the
-        # calibrated dual and the relocation with the aggregated value-to-go
-        # difference W(dest, t_done) - W(origin, now) from the Lagrangian
+        # calibrated dual and the relocation with the same-time value-to-go
+        # gradient W(dest, t_done) - W(origin, t_done) from the Lagrangian
         # sub-MDP's backward recursion (fit_value_togo.py).
         hour = float(load["hour"])
         assignment = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
         if not assignment.accepted:
             return False, -TARGET_SCALE, "dual_feasibility_guard"
-        lam = dual_price_lambda(scenario.name, str(load["origin_state"]), hour)
-        done = hour + float(load["travel_hours"])
+        lam = dual_price_lambda(
+            scenario.name,
+            str(load["origin_state"]),
+            hour,
+            dest=str(load["destination_state"]),
+        )
+        done = assignment.final_available_time
         # Same-time positional gradient: where is the truck better off at
         # t_done? The busy-time opportunity cost is left to lambda; using
         # W(origin, now) instead would double-count it (the single-truck
@@ -551,7 +601,28 @@ def choose_action(
             scenario, str(load["destination_state"]), done
         ) - value_togo(scenario, str(load["origin_state"]), done)
         score = assignment.profit - lam + continuation
-        return score >= 0, score, "dual_price_vf"
+        return score >= -ACCEPT_MARGIN, score, "dual_price_vf"
+    if policy_name == "dual_price_vf_naive":
+        # Ablation: the naive continuation W(dest, t_done) - W(origin, now)
+        # that credits the destination value while also keeping the origin's
+        # current option value --- the double-counting form the value-ledger
+        # lemma warns against. Kept only as a reproducible ablation arm.
+        hour = float(load["hour"])
+        assignment = feas.apply_accept(feas.copy_fleet(fleet), load, hour)
+        if not assignment.accepted:
+            return False, -TARGET_SCALE, "dual_feasibility_guard"
+        lam = dual_price_lambda(
+            scenario.name,
+            str(load["origin_state"]),
+            hour,
+            dest=str(load["destination_state"]),
+        )
+        done = assignment.final_available_time
+        continuation = value_togo(
+            scenario, str(load["destination_state"]), done
+        ) - value_togo(scenario, str(load["origin_state"]), hour)
+        score = assignment.profit - lam + continuation
+        return score >= -ACCEPT_MARGIN, score, "dual_price_vf_naive"
     if policy_name == "rollout_teacher":
         accept, incremental, _, _ = rollout.rollout_accepts(
             load, fleet, lanes, scenario, state_values, decision_index + rollout_seed_offset
@@ -589,6 +660,14 @@ def simulate_policy(
     cascade_band_dollars: float = CASCADE_BAND_DOLLARS,
     rollout_seed_offset: int = EVAL_SEED,
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
+    if policy_name == "dlp_resolve":
+        # The DLP's resolve cache is keyed by (scenario, id(fleet));
+        # Python can reuse object ids across runs, so an unreset cache
+        # could hand a fresh stream another stream's potentials. Reset
+        # per simulation.
+        import run_dlp_resolve as dlp
+
+        dlp._RESOLVE_STATE.clear()
     fleet = copy_fleet(starting_fleet)
     latencies: list[float] = []
     accepted = 0

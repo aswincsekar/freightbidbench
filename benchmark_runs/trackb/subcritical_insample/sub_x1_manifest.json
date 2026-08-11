@@ -1,0 +1,17 @@
+{
+ "cell": "sub_x1",
+ "config": "configs/freightbidbench_v041_subcritical.json",
+ "benchmark_version": "freightbidbench-v0.4.1",
+ "granularity": "lane",
+ "accept_margin": 50.0,
+ "pairs": "in",
+ "train_seeds": [
+  20260509,
+  20260511,
+  20260513
+ ],
+ "feasibility_config": "DEFAULT_CONFIG (all features enabled)",
+ "price_table_rows": 151,
+ "value_table_cells": 876,
+ "table_source": "lagrangian_dual_prices.csv of the train seed's solve dir"
+}

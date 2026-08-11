@@ -1,0 +1,12 @@
+{
+ "policy": "dlp_resolve",
+ "resolve_cadence_hours": 6.0,
+ "stage_hours": 12.0,
+ "duration_convention": "LP arcs: travel_hours + calibrated mean schedule overhead; decision score: probe assignment final_available_time",
+ "terminal_accounting": "final-stage dispatches net out the origin terminal; post-horizon trucks excluded from capacity; exact-ceiling stage counts",
+ "command": "FREIGHTBID_DLP_RESOLVE_HOURS=6 python3 scripts/run_dual_price_experiment.py --config configs/freightbidbench_v03_scenarios.json --scenarios scarce --first-pair 1 --pair-count 30 --policies dlp_resolve --output-dir benchmark_runs/trackb/dlp30_r6/scarce",
+ "cadence_selection": "benchmark_runs/trackb/dlp_cadence_tuning.csv (training streams, grid {12,6,3,2,1}h)",
+ "selected_for_scenario": true,
+ "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+ "python": "3.14.4"
+}

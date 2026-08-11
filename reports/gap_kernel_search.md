@@ -29,3 +29,18 @@ Fractional certificate (truck, chain loads, value, weight):
   T2 {L1,L4} val=20 x=1/2
 ```
 
+
+## Dual certificate (added 2026-07-28)
+
+Exact LP dual pinning LP = 89/2 (so the gap is exactly 7/2):
+
+```
+load duals   λ = (0, 0, 0, 21/2, 7, 9/2)   for L0..L5
+truck duals  μ = (0, 19/2, 13)             for T0..T2
+dual value   Σλ + Σμ = 22 + 45/2 = 89/2
+```
+
+Dual feasibility μ_k + Σ_{t∈S} λ_t ≥ val(S) holds for each of the
+eight feasible chains, with equality on the five packed chains.
+Verified in exact rationals (see `k1 duals` extraction against
+`scripts/find_gap_kernel.py` chain enumeration; zero violations).

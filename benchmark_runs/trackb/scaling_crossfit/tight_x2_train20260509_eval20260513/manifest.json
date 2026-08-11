@@ -1,0 +1,5 @@
+{
+ "table_train_seed": 20260509,
+ "table_source": "benchmark_runs/trackb/scaling/tight_x2_20260509/lagrangian_dual_prices.csv",
+ "eval_seed": 20260513
+}

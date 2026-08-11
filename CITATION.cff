@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use FreightBidBench, please cite this benchmark package."
 title: "FreightBidBench: A Public Benchmark for Real-Time Truckload Bid Acceptance with Hindsight Ceilings"
-version: "0.4.0"
-date-released: "2026-07-28"
+version: "0.4.2"
+date-released: "2026-08-10"
 type: software
 authors:
   - family-names: "Chandrasekaran"

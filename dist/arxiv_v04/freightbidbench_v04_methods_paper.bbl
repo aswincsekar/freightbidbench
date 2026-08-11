@@ -1,4 +1,4 @@
-\begin{thebibliography}{21}
+\begin{thebibliography}{29}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -23,6 +23,21 @@ Santiago~R. Balseiro, Haihao Lu, and Vahab Mirrokni.
 \newblock In \emph{Proceedings of the 37th International Conference on Machine
   Learning (ICML), PMLR 119}, 2020.
 
+\bibitem[Balseiro et~al.(2021)Balseiro, Brown, and
+  Chen]{balseirobrownchen2021relocating}
+Santiago~R. Balseiro, David~B. Brown, and Chen Chen.
+\newblock Dynamic pricing of relocating resources in large networks.
+\newblock \emph{Management Science}, 67\penalty0 (7):\penalty0 4075--4094,
+  2021.
+\newblock \doi{10.1287/mnsc.2020.3735}.
+
+\bibitem[Balseiro et~al.(2025)Balseiro, Ma, and
+  Zhang]{balseiromazhang2025twoprices}
+Santiago~R. Balseiro, Will Ma, and Wenxin Zhang.
+\newblock Dynamic pricing for reusable resources: The power of two prices.
+\newblock \emph{Operations Research}, 2025.
+\newblock \doi{10.1287/opre.2023.0475}.
+
 \bibitem[Bertsekas et~al.(1997)Bertsekas, Tsitsiklis, and
   Wu]{bertsekas1997rollout}
 Dimitri~P. Bertsekas, John~N. Tsitsiklis, and Cynara Wu.
@@ -38,9 +53,10 @@ Dimitris Bertsimas and John~N. Tsitsiklis.
 
 \bibitem[Brown and Zhang(2023)]{brownzhang2023strength}
 David~B. Brown and Jingwei Zhang.
-\newblock On the strength of relaxations of weakly coupled stochastic dynamic
-  programs.
-\newblock \emph{Operations Research}, 2023.
+\newblock Technical note---on the strength of relaxations of weakly coupled
+  stochastic dynamic programs.
+\newblock \emph{Operations Research}, 71\penalty0 (6):\penalty0 2374--2389,
+  2023.
 \newblock \doi{10.1287/opre.2022.2287}.
 
 \bibitem[Brown et~al.(2010)Brown, Smith, and Sun]{brown2010information}
@@ -48,6 +64,14 @@ David~B. Brown, James~E. Smith, and Peng Sun.
 \newblock Information relaxations and duality in stochastic dynamic programs.
 \newblock \emph{Operations Research}, 58\penalty0 (4):\penalty0 785--801, 2010.
 \newblock \doi{10.1287/opre.1090.0796}.
+
+\bibitem[Bumpensanti and Wang(2020)]{bumpensantiwang2020resolving}
+Pornpawee Bumpensanti and He~Wang.
+\newblock A re-solving heuristic with uniformly bounded loss for network
+  revenue management.
+\newblock \emph{Management Science}, 66\penalty0 (7):\penalty0 2993--3009,
+  2020.
+\newblock \doi{10.1287/mnsc.2019.3365}.
 
 \bibitem[Chandrasekaran(2026)]{chandrasekaran2026freightbidbench}
 Aswin Chandrasekaran.
@@ -80,11 +104,36 @@ Justin~C. Goodson, Barrett~W. Thomas, and Jeffrey~W. Ohlmann.
   (1):\penalty0 216--229, 2017.
 \newblock \doi{10.1016/j.ejor.2016.09.040}.
 
+\bibitem[Goyal et~al.(2025)Goyal, Iyengar, and
+  Udwani]{goyaliyengarudwani2025reusable}
+Vineet Goyal, Garud Iyengar, and Rajan Udwani.
+\newblock Asymptotically optimal competitive ratio for online allocation of
+  reusable resources.
+\newblock \emph{Operations Research}, 73\penalty0 (4):\penalty0 1897--1915,
+  2025.
+\newblock \doi{10.1287/opre.2021.0695}.
+
 \bibitem[Hawkins(2003)]{hawkins2003lagrangian}
 Jeffrey~Thomas Hawkins.
 \newblock \emph{A Lagrangian Decomposition Approach to Weakly Coupled Dynamic
   Optimization Problems and its Applications}.
 \newblock PhD thesis, Massachusetts Institute of Technology, 2003.
+
+\bibitem[Jasin and Kumar(2013)]{jasinkumar2013lp}
+Stefanus Jasin and Sunil Kumar.
+\newblock Analysis of deterministic {LP}-based booking limit and bid price
+  controls for revenue management.
+\newblock \emph{Operations Research}, 61\penalty0 (6):\penalty0 1312--1320,
+  2013.
+\newblock \doi{10.1287/opre.2013.1216}.
+
+\bibitem[Kim et~al.(2004)Kim, Mahmassani, and Jaillet]{kim2004dynamic}
+Yongjin Kim, Hani~S. Mahmassani, and Patrick Jaillet.
+\newblock Dynamic truckload routing, scheduling, and load acceptance for large
+  fleet operation with priority demands.
+\newblock \emph{Transportation Research Record}, 1882\penalty0 (1):\penalty0
+  120--128, 2004.
+\newblock \doi{10.3141/1882-15}.
 
 \bibitem[Powell et~al.(2012)Powell, Sim{\~a}o, and
   Bouzaiene-Ayari]{powell2007stochastic}
@@ -124,12 +173,29 @@ Huseyin Topaloglu.
 \newblock \emph{Operations Research}, 57\penalty0 (3):\penalty0 637--649, 2009.
 \newblock \doi{10.1287/opre.1080.0641}.
 
-\bibitem[van~de Geer(1995)]{vandegeer1995exponential}
-Sara~A. van~de Geer.
-\newblock Exponential inequalities for martingales, with application to maximum
-  likelihood estimation for counting processes.
-\newblock \emph{The Annals of Statistics}, 23\penalty0 (5):\penalty0
-  1779--1801, 1995.
+\bibitem[Topaloglu and Powell(2007)]{topaloglupowell2007pricing}
+Huseyin Topaloglu and Warren~B. Powell.
+\newblock Incorporating pricing decisions into the stochastic dynamic fleet
+  management problem.
+\newblock \emph{Transportation Science}, 41\penalty0 (3):\penalty0 281--301,
+  2007.
+\newblock \doi{10.1287/trsc.1070.0196}.
+
+\bibitem[Xie et~al.(2025)Xie, Gurvich, and
+  K{\"u}{\c{c}}{\"u}kyavuz]{xiegurvichkucukyavuz2025logregret}
+Xinchang Xie, Itai Gurvich, and Simge K{\"u}{\c{c}}{\"u}kyavuz.
+\newblock Dynamic allocation of reusable resources: Logarithmic regret in
+  overloaded networks.
+\newblock \emph{Operations Research}, 73\penalty0 (4):\penalty0 2097--2124,
+  2025.
+\newblock \doi{10.1287/opre.2022.0429}.
+
+\bibitem[Yang et~al.(2004)Yang, Jaillet, and Mahmassani]{yang2004realtime}
+Jian Yang, Patrick Jaillet, and Hani Mahmassani.
+\newblock Real-time multivehicle truckload pickup and delivery problems.
+\newblock \emph{Transportation Science}, 38\penalty0 (2):\penalty0 135--148,
+  2004.
+\newblock \doi{10.1287/trsc.1030.0068}.
 
 \bibitem[Zhang and Cheung(2022)]{zhangcheung2022reusable}
 Xilin Zhang and Wang~Chi Cheung.
