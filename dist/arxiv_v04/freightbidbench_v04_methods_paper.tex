@@ -74,15 +74,18 @@ rational primal--dual certificates and a replication lemma shows
 per-resource Lagrangian slack bounded away from zero at arbitrarily
 large fleet sizes (Theorem~3).
 
-On a public closed-loop benchmark with thirty paired seeds, the policy
---- one offline dual solve, no rollout labels --- beats a
-rollout-trained surrogate on two of three scenarios (tight:
-$+2.1$~pp, 95\% CI $[+0.5, +3.7]$; mild: $+3.5$~pp), with no
-statistically detectable difference on the third ($-0.9$~pp,
-$[-3.1, +1.4]$), deciding in 0.02--0.04\,ms --- roughly three
-orders of magnitude below the rollout teacher's 48--112\,ms, a
-separation large enough to survive the cross-host latency caveat of
-the experiments section. A re-solving deterministic-LP baseline,
+On a public closed-loop benchmark, a pre-registered confirmation run
+on thirty fresh paired seeds --- code, hyperparameters, and analysis
+frozen and pushed before any confirmatory result was observed ---
+finds that the policy --- one offline dual solve, no rollout labels
+--- beats a rollout-trained surrogate on the mild scenario
+($+3.4$~pp, 95\% CI $[+2.3, +4.5]$; the Bonferroni-simultaneous
+interval also excludes zero), with no statistically detectable
+difference on the two stress scenarios ($+0.6$~pp $[-0.9, +2.0]$;
+$+3.1$~pp $[-0.7, +8.3]$) --- a development-set tight effect of
+$+2.1$~pp did not replicate, which we report as the pre-registration
+requires --- deciding in 0.04--0.09\,ms, roughly three orders of
+magnitude below the rollout teacher's 49--117\,ms on the same host. A re-solving deterministic-LP baseline,
 its cadence tuned on training streams, is the stronger profit
 baseline on the two stress scenarios and weaker on the third, while
 swinging up to 29 points with its cadence; the certifier is
@@ -170,7 +173,7 @@ of the certificate:
   permissive discretization, and any surrogate quality. The design
   rule is \emph{duals price time, gradients price place}; the naive
   rule that charges time twice collapses to 24--30\% of rollout
-  across the full thirty-pair design (Lemma~\ref{lem:doublecount},
+  across the thirty confirmatory pairs (Lemma~\ref{lem:doublecount},
   Hypothesis~\ref{hyp:doubleshade}).
 \item \textbf{Fluid theory (\S\ref{sec:fluid}).} In the subcritical
   regime the gradient rule is exactly fluid complementary slackness,
@@ -190,11 +193,13 @@ of the certificate:
   particular random instance sampler (${\sim}0.03\%$ of draws);
   whether they matter at benchmark scale is an attribution question we
   treat empirically.
-\item \textbf{Evidence (\S\ref{sec:experiments}).} On thirty paired
-  seeds the policy beats a rollout-trained surrogate on two of three
-  scenarios, with no statistically detectable difference on the
-  third, at roughly $1000\times$ lower latency than rollout
-  (latencies timed on different hosts; the ratio is indicative); a cadence-tuned re-solving LP baseline earns more
+\item \textbf{Evidence (\S\ref{sec:experiments}).} On a
+  pre-registered confirmation set of thirty fresh paired seeds the
+  policy beats a rollout-trained surrogate on the mild scenario and
+  is statistically indistinguishable from it on the two stress
+  scenarios (a development-set tight effect did not replicate and is
+  reported as such), at roughly $1000\times$ lower latency than
+  rollout on the same host; a cadence-tuned re-solving LP baseline earns more
   profit on the stress scenarios (and less on mild, swinging up to
   29~pp with its cadence) --- the dual policy's distinct
   offer is a static, fit-once policy with a fluid-regime
@@ -602,9 +607,9 @@ fluid limit (where Lemma~\ref{lem:stability} gives the rent identity
 and, by Remark~\ref{rem:honest}, $D_{\mathrm{time}}$ itself vanishes
 so the two rules coincide). The hypothesis earns its keep at finite
 $K$ on contested streams, where its prediction is dramatic and
-confirmed: the naive rule collapses to 24.4--29.9\% of rollout
-profit across the full thirty-pair design while the gradient rule
-attains 90.2--101.8\% (\S\ref{sec:experiments}). \emph{Duals price time; gradients price
+confirmed: the naive rule collapses to 23.9--29.6\% of rollout
+profit across the thirty confirmatory pairs while the gradient rule
+attains 91.0--100.7\% (\S\ref{sec:experiments}). \emph{Duals price time; gradients price
 place} is the design heuristic this supports.
 
 \section{Fluid Consistency in the Subcritical Regime}
@@ -1258,28 +1263,34 @@ for online freight.
 All experiments use the public benchmark's frozen
 \texttt{scenario-v0.3.2} contract
 \citep{chandrasekaran2026freightbidbench}. The \emph{headline
-comparison} uses thirty held-out paired seeds (pairs 1--30; the dual
-tables are fitted on pair~0's stream and never refitted); the scaling,
+comparison} is a pre-registered confirmation run: the method was
+developed and revised on pairs 1--30 (now the development/validation
+set, retained in the repository), after which code, hyperparameters,
+scenario numerics, fitted tables, and the analysis scripts were
+frozen, hashed into a pre-registration manifest
+(\path{benchmark_runs/v04_dev/confirm60_prereg/}, amended once ---
+before any confirmatory result was observed --- after the
+voluntary-rest correction to the bound solver), committed, and
+pushed; only then were the thirty fresh pairs 31--60 run, once, on
+the execution host whose file hashes the manifest records. Every
+number in Table~\ref{tab:headline} and every headline claim comes
+from pairs 31--60; the dual tables are fitted on pair~0's stream and
+never refitted. The scaling,
 certificate, micro, portability, and cross-fit studies each state
-their own designs below. The primary inferential procedure is the
+their own designs below and are development-phase studies. The primary inferential procedure is the
 paired-bootstrap 95\% confidence interval (20{,}000 resamples) on the
 headline dual-versus-surrogate differences; Wilcoxon signed-rank and
 two-sided sign tests are reported as corroboration, and under a
-Bonferroni correction for the three scenarios the tight and mild
-effects still exclude zero (simultaneous 98.33\% CIs
-$[+0.14, +4.01]$ and $[+2.15, +4.68]$~pp;
-\path{scripts/analyze_trackb_results.py} regenerates them with the
+Bonferroni correction for the three scenarios only the mild
+effect excludes zero (simultaneous 98.33\% CIs: tight
+$[-1.22, +2.34]$, scarce $[-1.35, +9.53]$, mild $[+2.09, +4.75]$~pp;
+\path{scripts/analyze_confirmation.py} regenerates them with the
 documented seed). All headline inference is \emph{conditional on the
 frozen pair-0 dual tables}: the intervals integrate
 evaluation-stream variability only, not training-stream variability.
 The portability study bounds the training-stream effect at
 $\leq 0.71$~pp per pair for tight; for scarce and mild we state the
-conditioning rather than claim insensitivity. The
-mild dual-policy rows come from a corrected rerun with fitted tables
-(the original run's zero-fallback tables are superseded); the eval
-streams are identical pair by pair, and retention is computed against
-the original run's rollout profits
-(\path{scripts/analyze_v04_results.py} performs the merge). Policies: \texttt{bid\_price}
+conditioning rather than claim insensitivity. Policies: \texttt{bid\_price}
 (future-value proxy), \texttt{surrogate\_linear} (ridge regression on
 200 rollout labels per pair, retrained per pair), \texttt{dual\_price}
 (terminal-ramp ablation: fitted prices with a time-ramped
@@ -1289,30 +1300,29 @@ deterministic-LP bid prices, the classical comparator),
 \texttt{dual\_price\_vf} (this paper), the v0.3
 surrogate-to-rollout cascade, and
 \texttt{rollout\_teacher}. Latencies in Table~\ref{tab:headline}
-were measured single-threaded on two hosts: the baseline, surrogate,
-cascade, and rollout rows on a 4-core cloud VM; the dual-policy and
-DLP rows (rerun after later revisions) on an Apple M-series laptop,
-whose per-directory manifests record platform and Python version.
-Absolute values are Python reference latencies; ratios that span the
-two hosts are indicative only, though the three-orders-of-magnitude
-dual-policy--rollout separation remains large under plausible host
-effects
-(\path{benchmark_runs/v04_dev/seed30/PROVENANCE.md} lists which rows
-were measured where; even a several-fold host effect still leaves a
-separation in the hundreds, but the precise
-ratio should be read as indicative).
+were all measured on the same 4-core cloud VM during the
+confirmation run (a benefit of the single-host design: ratios no
+longer span hosts). The five headline policies ran with the three
+scenario processes in parallel on four cores, the DLP and naive arms
+sequentially afterward; absolute values are Python reference
+latencies under that documented load, so read them as indicative of
+order of magnitude --- the dual-policy--rollout separation is three
+orders of magnitude on identical hardware and load.
 
 \begin{table}[t]
 \centering
-\caption{Retention vs the rollout teacher over thirty held-out seed
-pairs, with mean per-decision latency. The two unbolded reference
+\caption{Retention vs the rollout teacher over the thirty
+pre-registered confirmation pairs (31--60), with mean per-decision
+latency on the common host. The two unbolded reference
 rows bracket the design space with different information demands: the re-solving
 deterministic-LP bid-price baseline (no labels; a fluid LP re-solved
 from the live fleet state at a per-scenario cadence selected on
-training streams over $\{12, 6, 3, 2, 1\}$ hours: 3, 6, and 1) and
-the v0.3
+\emph{development} training streams over $\{12, 6, 3, 2, 1\}$ hours:
+3, 6, and 1) and the v0.3
 surrogate-to-rollout cascade (200 rollout labels per pair
-\emph{and} rollout calls on escalated decisions). The last rows give
+\emph{and} rollout calls on escalated decisions; run on the same
+pairs with the frozen code but outside the pre-registered arm list,
+so it is descriptive). The last rows give
 the paired difference of the zero-label dual policy against the
 rollout-trained surrogate.}
 \label{tab:headline}
@@ -1322,17 +1332,17 @@ rollout-trained surrogate.}
 \toprule
 policy (latency, ms) & tight & scarce & mild \\
 \midrule
-\texttt{bid\_price} (0.001) & 91.1\% & 85.9\% & 99.1\% \\
-surrogate, 200 labels/pair (0.07--0.11) & 93.4\% & 91.1\% & 98.3\% \\
-\texttt{dual\_price} terminal-ramp ablation (0.017--0.037) & 91.2\% & 86.6\% & 99.1\% \\
-\texttt{dlp\_resolve}, no labels, tuned cadence (0.7--6.4) & 99.0\% & 98.5\% & 94.5\% \\
-\textbf{\texttt{dual\_price\_vf}, zero labels (0.017--0.038)} & \textbf{95.4\%} & \textbf{90.2\%} & \textbf{101.8\%} \\
-cascade, labels + rollout (18--30) & 98.3\% & 98.8\% & 99.5\% \\
-\texttt{rollout\_teacher} (48--112) & 100\% & 100\% & 100\% \\
+\texttt{bid\_price} (0.001) & 90.3\% & 87.3\% & 98.0\% \\
+surrogate, 200 labels/pair (0.08--0.11) & 93.5\% & 87.9\% & 97.3\% \\
+\texttt{dual\_price} terminal-ramp ablation (0.040--0.094) & 90.5\% & 88.2\% & 98.2\% \\
+\texttt{dlp\_resolve}, no labels, tuned cadence (1.0--10.2) & 99.1\% & 99.0\% & 93.0\% \\
+\textbf{\texttt{dual\_price\_vf}, zero labels (0.041--0.094)} & \textbf{94.1\%} & \textbf{91.0\%} & \textbf{100.7\%} \\
+cascade, labels + rollout (18--29) & 98.5\% & 98.9\% & 98.2\% \\
+\texttt{rollout\_teacher} (49--117) & 100\% & 100\% & 100\% \\
 \midrule
-paired vf $-$ surrogate & $+2.1$ pp $[+0.5, +3.7]$ & $-0.9$ pp $[-3.1, +1.4]$ & $+3.5$ pp $[+2.4, +4.5]$ \\
-paired vf $-$ surrogate (\$) & $+25.1$k $[+6.1, +43.8]$ & $-9.6$k $[-31.7, +13.4]$ & $+48.0$k $[+33.4, +61.8]$ \\
-Wilcoxon signed-rank $p$ & 0.019 & 0.329 & $<0.001$ \\
+paired vf $-$ surrogate & $+0.6$ pp $[-0.9, +2.0]$ & $+3.1$ pp $[-0.7, +8.3]$ & $+3.4$ pp $[+2.3, +4.5]$ \\
+paired vf $-$ surrogate (\$) & $+6.7$k $[-11.3, +25.0]$ & $+32.2$k $[-6.5, +85.7]$ & $+47.0$k $[+31.8, +62.7]$ \\
+Wilcoxon signed-rank $p$ & 0.544 & 0.658 & $<0.001$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -1344,14 +1354,21 @@ benchmark scale, roughly 5--6 hours on four cores at the measured
 $3.05\times$ parallel efficiency (the voluntary-rest action of the
 valid relaxation roughly doubles the pre-correction cost; exact times
 in every bound summary); we have not established a smaller
-policy-grade budget --- but no teacher labels. It beats the
-rollout-trained surrogate on tight
-(bootstrap CI excludes zero; Wilcoxon $p = 0.019$; the pure sign test is
-weaker at 19/30 wins, $p = 0.20$ --- the edge is in magnitudes) and on
-mild (all three tests agree; 26/30 wins); on scarce the difference
-is not statistically detectable ($-0.9$~pp, CI95 $[-3.1, +1.4]$ ---
-we claim no equivalence, only failure to detect a difference). On mild
-the policy also exceeds the rollout teacher itself (101.8\%) ---
+policy-grade budget --- but no teacher labels. On the confirmatory
+pairs it beats the rollout-trained surrogate on mild (all three
+tests agree: CI95 $[+2.3, +4.5]$, Wilcoxon $p < 0.001$, sign test
+25/28 wins; the Bonferroni-simultaneous interval also excludes
+zero); on tight and scarce the differences are not statistically
+detectable ($+0.6$~pp $[-0.9, +2.0]$ and $+3.1$~pp $[-0.7, +8.3]$
+--- we claim no equivalence, only failure to detect a difference).
+The development set had suggested a tight effect ($+2.1$~pp,
+CI95 $[+0.5, +3.7]$, Wilcoxon $p = 0.019$ on pairs 1--30); it did
+not replicate under the pre-registered protocol, and we report the
+confirmation estimate as the paper's finding --- the honest summary
+on the stress scenarios is parity with the 200-label surrogate at
+zero labels, not superiority. On mild
+the policy again exceeds the rollout teacher itself (100.7\%,
+beating it on 19/30 pairs; 101.8\% in development) ---
 consistent with rollout's finite lookahead and Monte Carlo noise
 mis-rejecting at low contention (the same pattern as the $K{=}35$
 scaling cell below), though we have not run the rollout-budget sweep
@@ -1364,9 +1381,10 @@ gradient mechanism of Lemma~\ref{lem:flat}. The other direction of that hypothes
 is the naive-continuation ablation
 (\texttt{dual\_price\_vf\_naive}) --- replacing the same-time
 gradient with $\widehat{W}(o, \mathrm{now})$ --- which collapses to
-$26.9$, $29.9$, and $24.4\%$ of rollout on tight, scarce, and mild
-across the full thirty-pair design
-(\path{benchmark_runs/trackb/naive30}), the double-charging failure
+$26.3$, $29.6$, and $23.9\%$ of rollout on tight, scarce, and mild
+across the thirty confirmatory pairs
+(\path{benchmark_runs/v04_dev/confirm60/naive}; 26.9/29.9/24.4\% in
+development), the double-charging failure
 predicted in \S\ref{sec:certs}.
 
 The two reference methods bracket the design space.
@@ -1387,17 +1405,20 @@ completion time. Its re-solve cadence is selected per scenario on the thirty
 plateau (the 1- and 2-hour training means differ by under $0.1\%$).
 The 12-hour stage width is fixed, not tuned; a finer stage model
 could shift the comparison further. We report the full sensitivity
-sweep alongside. The result is a strong baseline: at the tuned
+sweep alongside. The result is a strong baseline, and the ordering
+confirms: at the tuned
 cadences the DLP \emph{out-earns} the dual policy on both stress
-scenarios (paired against \texttt{dual\_price\_vf}: tight
-$+3.6$~pp, CI95 $[+2.1, +5.1]$; scarce $+8.3$~pp, $[+6.8, +9.8]$) and
-loses on mild ($-7.3$~pp, $[-8.5, -6.1]$). It is also strongly
-cadence-sensitive --- at 12 hours it drops to $77.0/91.1/65.5\%$
+scenarios (paired against \texttt{dual\_price\_vf} on the
+confirmatory pairs: tight
+$+5.0$~pp, CI95 $[+3.9, +6.2]$; scarce $+8.0$~pp, $[+6.4, +9.6]$) and
+loses on mild ($-7.7$~pp, $[-8.8, -6.5]$). It is also strongly
+cadence-sensitive --- at 12 hours on the development pairs it drops
+to $77.0/91.1/65.5\%$
 retention, a 7--29~pp swing --- and each re-solve epoch pays an LP
 solve. At the
 benchmark's FAF-state granularity the amortized cost is small
-(0.7--6.4\,ms \emph{mean} per-decision latency at the tuned
-cadences, versus the dual policy's 0.02--0.04\,ms) --- but the mean
+(1.0--10.2\,ms \emph{mean} per-decision latency at the tuned
+cadences, versus the dual policy's 0.04--0.09\,ms) --- but the mean
 amortizes the re-solve epochs themselves, each a ${\sim}0.16$\,s
 synchronous LP solve in our runner; a decision arriving during a
 re-solve would wait unless solves run asynchronously, so the
@@ -1414,7 +1435,10 @@ materially expensive at industrial network resolution is an open
 operational question, and neither method is granularity-free: the
 dual policy's offline fit and table sizes also grow with network
 resolution.
-Artifacts: \path{benchmark_runs/trackb/dlp30}, \path{dlp30_r6},
+Artifacts: the confirmatory tuned-cadence runs in
+\path{benchmark_runs/v04_dev/confirm60/dlp_tuned}; the development
+sensitivity sweep in \path{benchmark_runs/trackb/dlp30},
+\path{dlp30_r6},
 \path{dlp30_r3}, \path{dlp30_r2}, \path{dlp30_r1}; each directory's
 manifest records its cadence. The
 honest conclusion: the dual policy does \emph{not} dominate the
@@ -1425,7 +1449,7 @@ characterization of \S\ref{sec:fluid}. The certifier is a separate,
 ex-post, per-instance bound computation on the realized stream, and
 it is policy-agnostic: Table~\ref{tab:certs} certifies
 the tuned DLP itself at $62.7/61.0\%$, slightly above the dual
-policy's $60.1/57.7\%$ and just below rollout's $62.8/63.7\%$. The cascade recovers $98$--$99.5\%$ but
+policy's $60.1/57.6\%$ and just below rollout's $62.8/63.6\%$. The cascade recovers $98.2$--$98.9\%$ but
 needs both rollout labels and rollout calls at decision time, at
 ${\sim}500\times$ the dual policy's latency: the frontier position it
 occupies is real, and so is its cost.
@@ -1486,42 +1510,42 @@ and the scaling decomposition (right).
 \addplot[mutedink!70, dashed, thin, domain=0.0007:400] {100};
 % tight = solid fill, scarce = open fill
 \addplot[only marks, mark=pentagon*, mark size=2.6pt, mutedink]
-  coordinates {(0.0013,91.1)};
+  coordinates {(0.00125,90.3)};
 \addplot[only marks, mark=pentagon*, mark size=2.6pt, mutedink, mark options={fill=white}]
-  coordinates {(0.0012,85.9)};
+  coordinates {(0.00126,87.3)};
 \addplot[only marks, mark=diamond*, mark size=2.8pt, flatpink]
-  coordinates {(0.0227,91.2)};
+  coordinates {(0.0591,90.5)};
 \addplot[only marks, mark=diamond*, mark size=2.8pt, flatpink, mark options={fill=white}]
-  coordinates {(0.0167,86.6)};
+  coordinates {(0.0403,88.2)};
 \addplot[only marks, mark=*, mark size=2.4pt, vfblue]
-  coordinates {(0.0234,95.4)};
+  coordinates {(0.0600,94.1)};
 \addplot[only marks, mark=*, mark size=2.4pt, vfblue, mark options={fill=white}]
-  coordinates {(0.0170,90.2)};
+  coordinates {(0.0407,91.0)};
 \addplot[only marks, mark=square*, mark size=2.2pt, surteal]
-  coordinates {(0.0807,93.4)};
+  coordinates {(0.0859,93.5)};
 \addplot[only marks, mark=square*, mark size=2.2pt, surteal, mark options={fill=white}]
-  coordinates {(0.0748,91.1)};
+  coordinates {(0.0761,87.9)};
 \addplot[only marks, mark=triangle*, mark size=2.8pt, rollver]
-  coordinates {(74.5,100)};
+  coordinates {(76.8,100)};
 \addplot[only marks, mark=triangle*, mark size=2.8pt, rollver, mark options={fill=white}]
-  coordinates {(48.0,100)};
+  coordinates {(48.6,100)};
 \addplot[only marks, mark=oplus*, mark size=2.4pt, mutedink]
-  coordinates {(1.63,99.0)};
+  coordinates {(2.44,99.1)};
 \addplot[only marks, mark=oplus*, mark size=2.4pt, mutedink, mark options={fill=white}]
-  coordinates {(0.67,98.5)};
+  coordinates {(0.97,99.0)};
 \addplot[only marks, mark=otimes*, mark size=2.4pt, rollver]
-  coordinates {(29.6,98.3)};
+  coordinates {(29.4,98.5)};
 \addplot[only marks, mark=otimes*, mark size=2.4pt, rollver, mark options={fill=white}]
-  coordinates {(29.0,98.8)};
+  coordinates {(28.7,98.9)};
 \node[font=\footnotesize, mutedink, anchor=west] at (axis cs:0.0018,88.6) {\texttt{bid\_price}};
-\node[font=\footnotesize, flatpink, anchor=north] at (axis cs:0.045,86.0) {terminal-ramp};
-\node[font=\footnotesize, vfblue, anchor=south] at (axis cs:0.05,95.9) {\texttt{dual\_price\_vf}};
-\node[font=\footnotesize, surteal, anchor=west] at (axis cs:0.11,92.4) {surrogate};
+\node[font=\footnotesize, flatpink, anchor=north] at (axis cs:0.048,87.7) {terminal-ramp};
+\node[font=\footnotesize, vfblue, anchor=south] at (axis cs:0.055,94.4) {\texttt{dual\_price\_vf}};
+\node[font=\footnotesize, surteal, anchor=west] at (axis cs:0.12,93.3) {surrogate};
 \node[font=\footnotesize, rollver, anchor=south] at (axis cs:57,100.6) {rollout};
 \node[font=\footnotesize, mutedink, anchor=south] at (axis cs:1.6,99.4) {\texttt{dlp\_resolve}};
 \node[font=\footnotesize, rollver, anchor=north] at (axis cs:24,97.9) {cascade};
-\node[font=\footnotesize, mutedink!80, anchor=south] at (axis cs:1.9,96.9) {$\approx\!1000\times$};
-\draw[mutedink!60, dashed, ->] (axis cs:0.12,96.4) -- (axis cs:38,99.4);
+\node[font=\footnotesize, mutedink!80, anchor=south] at (axis cs:1.9,96.3) {$\approx\!1000\times$};
+\draw[mutedink!60, dashed, ->] (axis cs:0.13,95.0) -- (axis cs:38,99.3);
 \end{axis}
 \end{tikzpicture}%
 \hfill
@@ -1548,12 +1572,14 @@ and the scaling decomposition (right).
 \node[font=\footnotesize, mutedink, anchor=south west] at (axis cs:72,97.5) {\% of rollout};
 \end{axis}
 \end{tikzpicture}
-\caption{Left: the latency--quality frontier over thirty held-out seed
-pairs (solid marks: tight; open marks: scarce). The log axis shows what
-the tables cannot: \texttt{dual\_price\_vf} gives up 4.6--10 points of
-rollout profit to move three orders of magnitude left; on tight it
-sits above the rollout-trained surrogate at lower latency, on scarce
-at the surrogate's level. Right:
+\caption{Left: the latency--quality frontier over the thirty
+confirmatory pairs (solid marks: tight; open marks: scarce). The log
+axis shows what
+the tables cannot: \texttt{dual\_price\_vf} gives up 5.9--9.0 points of
+rollout profit to move three orders of magnitude left, sitting at or
+above the rollout-trained surrogate at lower latency on both stress
+scenarios (the paired differences are not statistically detectable;
+Table~\ref{tab:headline}). Right:
 proportional fleet scaling (cross-fitted, extension-matched
 budgets). The policy tracks rollout (dashed, top)
 while the certified fraction of the bound falls with $K$: the
@@ -1797,12 +1823,12 @@ across the two designs; the gap is policy loss), and benchmark-scale
 attribution remains open.
 
 \paragraph{Relation to the benchmark's cascade.} On the same thirty
-pairs (Table~\ref{tab:headline}), the v0.3 surrogate-to-rollout
+confirmatory pairs (Table~\ref{tab:headline}), the v0.3 surrogate-to-rollout
 cascade \citep{chandrasekaran2026freightbidbench} attains
-$98.3$--$99.5\%$ of rollout. But it needs 200
+$98.2$--$98.9\%$ of rollout. But it needs 200
 rollout labels per stream to train, and it invokes rollout on
-escalated decisions (18--30\,ms mean latency). On the stress
-scenarios the dual policy trades 3--9 retention points for
+escalated decisions (18--29\,ms mean latency). On the stress
+scenarios the dual policy trades 4--8 retention points for
 ${\sim}500\times$ lower latency and no teacher labels (on mild it
 beats the cascade outright).
 The two are complementary. Replacing the cascade's cheap stage with the
@@ -1860,8 +1886,9 @@ certificate is tight (subcritical fluid consistency,
 Theorem~\ref{thm:fluid} with Corollary~\ref{cor:tight}) and shows,
 with exact certificates, why it cannot always be (kernels with
 irreducible per-resource slack, Theorem~\ref{thm:kernel}). On a public
-benchmark the policy beats a rollout-trained surrogate on two of three
-scenarios (no statistically detectable difference on the third), at
+benchmark's pre-registered confirmation set the policy matches a
+rollout-trained surrogate on the two stress scenarios and beats it
+on the third, at
 roughly three orders of magnitude lower
 latency than the teacher; a cadence-tuned re-solving deterministic LP
 --- the strongest zero-label baseline once its duration conventions
@@ -2374,7 +2401,11 @@ multi-seed scaling, cascade and DLP thirty-pair runs, subcritical
 solves with warm-start extensions, exact micro decompositions);
 their statistics regenerate via
 \path{scripts/analyze_trackb_results.py}, and the headline tables via
-\path{scripts/analyze_v04_results.py}. The
+\path{scripts/analyze_v04_results.py} pointed at the confirmatory
+directories plus \path{scripts/analyze_confirmation.py} (the
+pre-registration manifest, its amendment, and the locked run wrapper
+are in \path{benchmark_runs/v04_dev/confirm60_prereg/}; the
+confirmatory artifacts in \path{benchmark_runs/v04_dev/confirm60/}). The
 public v0.4 contract
 (\path{configs/freightbidbench_v04_scenarios.json},
 \texttt{policy-set-v0.4.0}) includes both dual policies in the default

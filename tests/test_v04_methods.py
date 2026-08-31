@@ -441,6 +441,80 @@ class TrackbAnalysisTests(unittest.TestCase):
         self.assertIn("dense two-phase simplex", out)
 
 
+class ConfirmationAnalysisTests(unittest.TestCase):
+    """The pre-registered confirmation statistics (pairs 31-60)
+    regenerate exactly from the locked artifacts with the frozen
+    estimators; these are the paper's headline numbers."""
+
+    def test_confirmation_statistics_regenerate(self):
+        import subprocess
+        import sys
+
+        out = subprocess.run(
+            [sys.executable, str(REPO / "scripts/analyze_confirmation.py")],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        # Bonferroni-simultaneous 98.33% CIs: only mild excludes zero;
+        # the development-set tight effect did not replicate.
+        self.assertIn("tight: +0.57 pp [-1.22, +2.34] includes 0", out)
+        self.assertIn("scarce: +3.10 pp [-1.35, +9.53] includes 0", out)
+        self.assertIn("mild: +3.42 pp [+2.09, +4.75] excludes 0", out)
+        # Tuned-cadence DLP ordering confirms: out-earns on the stress
+        # scenarios, loses on mild.
+        self.assertIn("delta +5.03 pp [CI95 +3.87, +6.24]", out)
+        self.assertIn("delta +8.03 pp [CI95 +6.37, +9.64]", out)
+        self.assertIn("delta -7.67 pp [CI95 -8.77, -6.54]", out)
+        # Naive-continuation collapse replicates.
+        self.assertIn("tight: 26.3% (sd 2.1)", out)
+        self.assertIn("scarce: 29.6% (sd 2.4)", out)
+        self.assertIn("mild: 23.9% (sd 2.0)", out)
+        # Mild exceeds the rollout teacher on the confirmatory set.
+        self.assertIn("mild: 100.7% (sd 2.4); beats rollout on 19/30", out)
+
+    def test_frozen_analyzer_headline_numbers(self):
+        import subprocess
+        import sys
+
+        out = subprocess.run(
+            [
+                sys.executable,
+                str(REPO / "scripts/analyze_v04_results.py"),
+                "--seed30-dir",
+                str(REPO / "benchmark_runs/v04_dev/confirm60"),
+                "--mild-dir",
+                str(REPO / "benchmark_runs/v04_dev/confirm60/mild"),
+                "--output-dir",
+                str(REPO / "benchmark_runs/v04_dev/confirm60/analysis"),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        self.assertIn(
+            "paired vf-surrogate: +0.6 pp [CI95 -0.9, +2.0];"
+            " $+6,730 [CI95 -11,252, +25,022]",
+            out,
+        )
+        self.assertIn(
+            "paired vf-surrogate: +3.1 pp [CI95 -0.7, +8.3];"
+            " $+32,191 [CI95 -6,522, +85,734]",
+            out,
+        )
+        self.assertIn(
+            "paired vf-surrogate: +3.4 pp [CI95 +2.3, +4.5];"
+            " $+47,025 [CI95 +31,839, +62,694]",
+            out,
+        )
+        self.assertIn("Wilcoxon p = 0.544; sign test 16/30 wins", out)
+        self.assertIn("sign test 25/28 wins", out)
+        # Table 1 retention means (confirmation pairs).
+        self.assertIn("dual_price_vf: retention 94.1%", out)
+        self.assertIn("dual_price_vf: retention 91.0%", out)
+        self.assertIn("dual_price_vf: retention 100.7%", out)
+
+
 class DlpNetworkInvariantTests(unittest.TestCase):
     """Network-flow invariants of the stage DLP (reviewer round 6):
     terminal value is earned exactly once per truck, post-horizon

@@ -32,10 +32,14 @@ state-blind, and the same linear-programming basis stability explains
 why fitted prices are portable across sample paths. Third, certificates
 have limits: a three-truck kernel with an exact rational certificate
 and a replication lemma shows per-resource duality slack can stay
-bounded away from zero at every fleet size. On a public benchmark with
-thirty paired seeds, the policy — which needs no rollout labels — beats
-a rollout-trained surrogate on two of three scenarios and ties the
-third, deciding roughly a thousand times faster.
+bounded away from zero at every fleet size. On a public benchmark's
+pre-registered confirmation set of thirty fresh paired seeds — code
+and analysis frozen and pushed before any confirmatory result — the
+policy, which needs no rollout labels, beats a rollout-trained
+surrogate on one scenario and is statistically indistinguishable
+from it on the other two, deciding roughly a thousand times faster.
+A development-set effect that did not survive confirmation is
+reported as such in the paper.
 
 The model sits outside the reusable-resource and weakly-coupled lines
 this journal knows well: the resources relocate and carry
