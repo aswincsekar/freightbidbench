@@ -93,9 +93,9 @@ consistency and certificate tightness in the subcritical regime ---
 inside a framework whose ex-post, per-instance certifier prices every
 policy on the same scale. Its certificates are stable
 across ten bounded instances per scenario --- certified $\geq$
-57.7--60.1\% of the hindsight optimum, within 2.7--6.0 points of what
+57.6--60.1\% of the hindsight optimum, within 2.7--6.0 points of what
 the roughly $1000\times$-slower teacher itself certifies
-(62.8--63.7\%; latency hosts differ); its fitted prices are interchangeable across five
+(62.8--63.6\%; latency hosts differ); its fitted prices are interchangeable across five
 independent training streams (tight scenario). Across sixty micro-instances where we compute the joint optimum
 exactly --- half by a randomized-window, ex-ante-placement design with
 service chains up to length four --- an integral optimal solution is
@@ -169,7 +169,7 @@ of the certificate:
   Theorem~\ref{thm:cert}: the certificate is valid for any duals, any
   permissive discretization, and any surrogate quality. The design
   rule is \emph{duals price time, gradients price place}; the naive
-  rule that charges time twice collapses to 17--26\% of rollout
+  rule that charges time twice collapses to 24--30\% of rollout
   across the full thirty-pair design (Lemma~\ref{lem:doublecount},
   Hypothesis~\ref{hyp:doubleshade}).
 \item \textbf{Fluid theory (\S\ref{sec:fluid}).} In the subcritical
@@ -389,8 +389,21 @@ with per-service reward $r(x, \ell_t) - \lambda_t$, retaining $f$, $S$,
 and renewal. Weak duality gives $\Vstar(\xi) \leq L(\lambda; \xi)$
 pointwise for every $\lambda \geq 0$ (see also the
 information-relaxation view of \citealp{brown2010information}). The benchmark computes $L$ by
-bucketed forward enumeration with a permissive-corner guarantee, so
-reported bounds remain valid under discretization; per-resource solves
+bucketed forward enumeration over an \emph{augmented} per-resource
+system that additionally grants a voluntary timed rest
+(\texttt{RESET\_HOURS} of wall-clock, clocks renewed) before any
+service. The augmentation is what makes the bucketing sound: rounding
+clocks down is \emph{not} permissive on its own, because mandatory
+rests renew clocks --- a higher-usage state can be strictly more
+valuable when service triggers a reset --- but with voluntary rest
+available, a lower-usage state reproduces any renewed-clock state a
+higher-usage plan reaches, at no later a completion time, so the
+snapped bucket corner dominates every state in its bucket. Adding
+actions can only raise per-resource optima, so $L$ computed on the
+augmented system still upper-bounds the true $L$, hence $\Vstar$
+(a one-truck counterexample without the augmentation, and randomized
+one-truck audits against the exact joint DP, ship in the test suite).
+Per-resource solves
 parallelize (standard-library multiprocessing; bit-identical to serial).
 
 \section{The Dual-Price Policy}
@@ -494,7 +507,11 @@ $V^{\pi}(\xi) \leq \Vstar(\xi) \leq L(\lambda; \xi)$, hence the
 observable $\mathrm{gap}(\xi) := L(\lambda; \xi) - V^{\pi}(\xi)$
 upper-bounds the true suboptimality $\Vstar(\xi) - V^{\pi}(\xi)$. The
 certificate remains valid for any $\lambda$, any per-resource
-discretization with the permissive-corner property, and any quality of
+discretization with the permissive-corner property (each bucket's
+representative dominates every state in its bucket \emph{within the
+solver's --- possibly augmented --- action system}; the benchmark
+achieves this with a voluntary-rest action, \S\ref{sec:lagrangian}),
+and any quality of
 $\hat{\lambda}, \widehat{W}$ --- surrogate error degrades policy value
 (widening the reported gap) but never invalidates the certificate.
 \end{theorem}
@@ -585,7 +602,7 @@ fluid limit (where Lemma~\ref{lem:stability} gives the rent identity
 and, by Remark~\ref{rem:honest}, $D_{\mathrm{time}}$ itself vanishes
 so the two rules coincide). The hypothesis earns its keep at finite
 $K$ on contested streams, where its prediction is dramatic and
-confirmed: the naive rule collapses to 16.7--26.2\% of rollout
+confirmed: the naive rule collapses to 24.4--29.9\% of rollout
 profit across the full thirty-pair design while the gradient rule
 attains 90.2--101.8\% (\S\ref{sec:experiments}). \emph{Duals price time; gradients price
 place} is the design heuristic this supports.
@@ -1250,9 +1267,14 @@ headline dual-versus-surrogate differences; Wilcoxon signed-rank and
 two-sided sign tests are reported as corroboration, and under a
 Bonferroni correction for the three scenarios the tight and mild
 effects still exclude zero (simultaneous 98.33\% CIs
-$[+0.14, +4.01]$ and $[+2.16, +4.69]$~pp;
+$[+0.14, +4.01]$ and $[+2.15, +4.68]$~pp;
 \path{scripts/analyze_trackb_results.py} regenerates them with the
-documented seed). The
+documented seed). All headline inference is \emph{conditional on the
+frozen pair-0 dual tables}: the intervals integrate
+evaluation-stream variability only, not training-stream variability.
+The portability study bounds the training-stream effect at
+$\leq 0.71$~pp per pair for tight; for scarce and mild we state the
+conditioning rather than claim insensitivity. The
 mild dual-policy rows come from a corrected rerun with fitted tables
 (the original run's zero-fallback tables are superseded); the eval
 streams are identical pair by pair, and retention is computed against
@@ -1317,10 +1339,12 @@ Wilcoxon signed-rank $p$ & 0.019 & 0.329 & $<0.001$ \\
 
 The policy is rollout-label-free, not free: it requires one offline
 dual solve on a training path --- bound-grade solves (45 iterations)
-average 118--141 minutes on four cores at benchmark scale (exact times
-in every bound summary; \path{scripts/analyze_v04_results.py} reports
-them); we have not established a smaller policy-grade budget --- but
-no teacher labels. It beats the
+of the corrected relaxation average 17--20 hours single-worker at
+benchmark scale, roughly 5--6 hours on four cores at the measured
+$3.05\times$ parallel efficiency (the voluntary-rest action of the
+valid relaxation roughly doubles the pre-correction cost; exact times
+in every bound summary); we have not established a smaller
+policy-grade budget --- but no teacher labels. It beats the
 rollout-trained surrogate on tight
 (bootstrap CI excludes zero; Wilcoxon $p = 0.019$; the pure sign test is
 weaker at 19/30 wins, $p = 0.20$ --- the edge is in magnitudes) and on
@@ -1340,7 +1364,7 @@ gradient mechanism of Lemma~\ref{lem:flat}. The other direction of that hypothes
 is the naive-continuation ablation
 (\texttt{dual\_price\_vf\_naive}) --- replacing the same-time
 gradient with $\widehat{W}(o, \mathrm{now})$ --- which collapses to
-$26.0$, $26.2$, and $16.7\%$ of rollout on tight, scarce, and mild
+$26.9$, $29.9$, and $24.4\%$ of rollout on tight, scarce, and mild
 across the full thirty-pair design
 (\path{benchmark_runs/trackb/naive30}), the double-charging failure
 predicted in \S\ref{sec:certs}.
@@ -1422,15 +1446,15 @@ teacher alike.}
 \toprule
  & \texttt{dual\_price\_vf} & \texttt{dlp\_resolve} (tuned) & \texttt{rollout\_teacher} \\
 \midrule
-tight & $\geq$ \textbf{60.1\%} (57.0--63.3) & $\geq$ 62.7\% (57.4--65.0) & $\geq$ 62.8\% (60.5--66.8) \\
-scarce & $\geq$ \textbf{57.7\%} (53.5--61.5) & $\geq$ 61.0\% (56.1--63.8) & $\geq$ 63.7\% (61.2--65.3) \\
+tight & $\geq$ \textbf{60.1\%} (57.0--63.2) & $\geq$ 62.7\% (57.3--65.0) & $\geq$ 62.8\% (60.3--66.9) \\
+scarce & $\geq$ \textbf{57.6\%} (53.3--61.3) & $\geq$ 61.0\% (56.1--63.9) & $\geq$ 63.6\% (61.1--65.2) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Certificates are narrow, stable distributions; the tuned re-solving
-DLP certifies 2.6--3.3~pp above the dual policy, and the
-roughly $1000\times$-slower rollout teacher only 0.1--2.7~pp above
+DLP certifies 2.6--3.4~pp above the dual policy, and the
+roughly $1000\times$-slower rollout teacher only 0.1--2.6~pp above
 the DLP.
 That is the observed bound-to-policy separation for the three
 strongest tested policies. It does not bound untested policies, and it does not
@@ -1517,9 +1541,9 @@ and the scaling decomposition (right).
 ]
 \addplot[mutedink, dashed, thin, domain=30:160] {100};
 \addplot[vfblue, thick, mark=*, mark size=2.1pt]
-  coordinates {(35,64.4)(70,63.0)(140,47.8)};
+  coordinates {(35,64.8)(70,58.8)(140,51.5)};
 \addplot[mutedink, thick, dashed, mark=triangle*, mark size=2.5pt]
-  coordinates {(35,116.6)(70,93.3)(140,96.9)};
+  coordinates {(35,103.9)(70,94.2)(140,102.1)};
 \node[font=\footnotesize, vfblue, anchor=west] at (axis cs:36,70) {certified \% of bound};
 \node[font=\footnotesize, mutedink, anchor=south west] at (axis cs:72,97.5) {\% of rollout};
 \end{axis}
@@ -1530,66 +1554,61 @@ the tables cannot: \texttt{dual\_price\_vf} gives up 4.6--10 points of
 rollout profit to move three orders of magnitude left; on tight it
 sits above the rollout-trained surrogate at lower latency, on scarce
 at the surrogate's level. Right:
-proportional fleet scaling. The policy tracks rollout (dashed, top)
-while the certified fraction of the bound falls at $K = 140$: the
-\emph{reported} gap widens under the current solver budgets
+proportional fleet scaling (cross-fitted, extension-matched
+budgets). The policy tracks rollout (dashed, top)
+while the certified fraction of the bound falls with $K$: the
+reported gap widens with density under a common budget rule
 (attribution between relaxation slack --- the mechanism
-Theorem~\ref{thm:kernel} isolates --- dual under-convergence, and
+Theorem~\ref{thm:kernel} isolates --- residual dual
+under-convergence, and
 policy loss is open); the policy does not degrade against rollout.}
 \label{fig:evidence}
 \end{figure}
 
 \begin{table}[t]
 \centering
-\caption{Proportional fleet scaling (tight economics). The pair-0
-column reproduces the original single instance per cell (deep,
-warm-chained solves) and is \emph{in-sample} --- its tables were
-fitted from its own stream --- so it is kept strictly as a solver
-diagnostic. The fresh-seed columns are \emph{cross-fitted}: tables
-fitted from a different seed's solve of the same cell, the policy and
-rollout simulated on the evaluation seed, and the bound computed on
-that same evaluation seed --- a certificate requires the bound and
-the realized policy value on the same instance, but the tables can
-and should come from an independent stream (values aggregated by
-evaluation stream, $\pm$ are sample standard deviations, $n = 3$;
-driver script in the reproducibility appendix).
-The fresh-seed bounds are size-scaled but not convergence-matched, so
-``certified gap'' means the \emph{reported} gap at those budgets, and
-the levels are not comparable across columns.}
+\caption{Proportional fleet scaling (tight economics), cross-fitted:
+tables fitted from a different seed's solve of the same cell, the
+policy and rollout simulated on the evaluation seed, and the bound
+computed on that same evaluation seed --- a certificate requires the
+bound and the realized policy value on the same instance, but the
+tables can and should come from an independent stream (values
+aggregated by evaluation stream, $\pm$ are sample standard
+deviations, $n = 3$; driver script in the reproducibility appendix).
+Bounds are extension-matched under a common rule: each cell's
+size-scaled base solve plus one $+15$-iteration warm extension.
+``Certified gap'' still means the \emph{reported} gap at those
+budgets --- deeper convergence could narrow the levels --- so the
+finding is the trend, not the levels.}
 \label{tab:scaling}
 \small
-\begin{tabular}{rrrrr}
+\begin{tabular}{rrr}
 \toprule
-$K$ & \multicolumn{2}{c}{certified gap} & \multicolumn{2}{c}{policy vs rollout} \\
- & pair 0 & 3 fresh (cross-fit) & pair 0 & 3 fresh (cross-fit) \\
+$K$ & certified gap & policy vs rollout \\
 \midrule
-35 & 35.6\% & 38.1 $\pm$ 1.3\% & 116.6\% & 103.9 $\pm$ 4.1\% \\
-70 & 37.0\% & 45.5 $\pm$ 1.7\% & 93.3\% & 94.2 $\pm$ 2.0\% \\
-140 & 52.2\% & 49.4 $\pm$ 1.6\% & 96.9\% & 102.1 $\pm$ 2.6\% \\
+35 & 35.2 $\pm$ 1.3\% & 103.9 $\pm$ 4.1\% \\
+70 & 41.2 $\pm$ 1.6\% & 94.2 $\pm$ 2.0\% \\
+140 & 48.5 $\pm$ 1.8\% & 102.1 $\pm$ 2.6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The reported certificate gap widens under the current solver budgets
-(Table~\ref{tab:scaling}), and that widening replicates
-across seeds with tight dispersion; whether it persists under
-convergence-matched budgets is exactly what the pending
-common-stopping-rule extension tests. Cross-fitting (\path{scripts/run_scaling_crossfit.sh}) turns out to
+The certificate gap widens with density under extension-matched
+budgets (Table~\ref{tab:scaling}: each cell's size-scaled base solve
+warm-extended one $+15$-iteration round under a common rule,
+$35.2 \to 41.2 \to 48.5\%$), and the widening replicates across
+seeds with tight dispersion. The extensions still improved most
+incumbents at their final iterations, so deeper convergence could
+narrow the levels further: we read the trend, not the levels, as the
+finding, and the cross-$K$ comparison still partially confounds
+density with residual dual convergence. Cross-fitting
+(\path{scripts/run_scaling_crossfit.sh}) turns out to
 be immaterial here --- the in-sample fresh-seed values differ from
 the cross-fitted ones by at most $0.1$~pp --- but the table reports
-the cross-fitted design because only it is deployment-valid. The policy
-stays within 7\% of
-rollout at all scales, beating it at $K = 35$ in both columns and at
-$K = 140$ in the replication arm. One caveat on the gap columns: the
-fresh-seed budgets scale with instance size (15--30 iterations) but
-are not convergence-matched, and most incumbents were still improving
-at their final iterations, so the cross-$K$ gap comparison partially
-confounds density with dual convergence; we treat the density trend as
-suggestive pending a common-stopping-rule extension. The pair-0
-column's deep-solve diagnostics --- robustness to a $2\times$
-step-size schedule reset, and a warm-started extension of the
-$K = 140$ solve to 200 iterations that never improves the incumbent
---- argue against under-convergence there, but do not separate
+the cross-fitted design because only it is deployment-valid. The
+policy stays within 7\% of
+rollout at all scales, beating it at $K = 35$ and at
+$K = 140$. None of this separates
 relaxation slack from policy loss; for that attribution, see the exact
 micro study below. Rollout's latency
 grows $32 \to 159$\,ms over this
@@ -1678,15 +1697,15 @@ the independence the theorem requires. Aggregated by evaluation
 stream (three independent streams, each scored under two independent
 training tables), cross-fitted certified fractions are numerically
 close to the in-sample results
-($63.7 \pm 1.0$, $59.0 \pm 3.1$, $51.0 \pm 1.2\%$ at the deepest
-solver budgets), and mean retention vs rollout is $110.6$, $104.1$,
-and $100.5\%$ (three evaluation streams per cell; at $K = 240$ one
+($64.3 \pm 1.1$, $59.3 \pm 3.0$, $45.5 \pm 1.1\%$ at the deepest
+solver budgets), and mean retention vs rollout is $110.4$, $104.5$,
+and $100.2\%$ (three evaluation streams per cell; at $K = 240$ one
 stream's mean falls below rollout) --- consistent with basis
 stability.
 
 Two caveats scope what this tests. First, instrumented diagnostics
 show the family is \emph{not} (A1)-subcritical: idle pools do empty,
-and 21--26\% of arrivals are blocked by the feasibility guard despite
+and 20--26\% of arrivals are blocked by the feasibility guard despite
 otherwise-accepting scores. FAF-calibrated geography has structurally
 thin markets, so ``idle mass in every market'' fails at any aggregate
 fleet ratio. Second, the scenario retains the benchmark's windows,
@@ -1696,6 +1715,22 @@ low-contention, out-of-sample robustness test of the
 theorem-\emph{inspired} policy, not a validation of the theorem's
 hypotheses; the assumption-matched family below tests those
 directly.
+
+The certificate side of this iteratively solved low-contention
+family ($K = 60/120/240$, subgradient budgets) stands on its own. At
+the 25-iteration base budget the certified fractions read
+$57.6/49.2/41.4\%$; warm-extending the same solves to 70 iterations
+lifts them to $64.4/59.0/45.6\%$ --- with dual trajectories still
+descending.
+Reported
+certificates climb monotonically with solver effort --- the direction
+the conservativeness remark after Corollary~\ref{cor:tight}
+predicts. Any cross-$K$ comparison at a
+\emph{fixed} iteration budget confounds scale with dual convergence,
+since larger instances are further from their optimal duals at the
+same budget. The corollary's large-$K$ tightening is therefore not
+testable at these budgets: the experiment is consistent with, but
+does not confirm, asymptotic certificate tightness.
 
 \paragraph{Theorem 2 on its own terms.} Because the benchmark
 violates (A1)--(A4), we also built the idealized model the theorem
@@ -1740,22 +1775,6 @@ rare but is not guaranteed absent at any finite $K$. This validates
 the theorem's mechanism on its own model; the distance between this
 family and FAF-calibrated geography is precisely the content of the
 caveats above.
-
-The certificate side stands on its own. At short solver budgets
-(15--25 iterations) the certified fractions read
-$52.4/47.5/41.6\%$; warm-extending the same solves to 60--70
-iterations lifts them to $63.7/59.0/46.2\%$, and extending the
-$K = 240$ cells to 115 iterations lifts their row to
-$51.1 \pm 1.6\%$ --- with every dual trajectory still descending.
-Reported
-certificates climb monotonically with solver effort --- the direction
-the conservativeness remark after Corollary~\ref{cor:tight}
-predicts. Any cross-$K$ comparison at a
-\emph{fixed} iteration budget confounds scale with dual convergence,
-since larger instances are further from their optimal duals at the
-same budget. The corollary's large-$K$ tightening is therefore not
-testable at these budgets: the experiment is consistent with, but
-does not confirm, asymptotic certificate tightness.
 
 \section{Discussion}
 \label{sec:discussion}

@@ -4,17 +4,17 @@
 
 ### mild (n = 30 pairs)
 - bid_price: retention 99.1%, latency 1.308 us/decision
-- dual_price: retention 99.1%, latency 36.913 us/decision
-- dual_price_vf: retention 101.8%, latency 37.607 us/decision
+- dual_price: retention 99.1%, latency 37.477 us/decision
+- dual_price_vf: retention 101.8%, latency 38.245 us/decision
 - rollout_teacher: retention 100.0%, latency 111.66 ms
 - surrogate_linear: retention 98.3%, latency 105.845 us/decision
-- paired vf-surrogate: +3.5 pp [CI95 +2.4, +4.5]; $+48,004 [CI95 +33,428, +61,820]
+- paired vf-surrogate: +3.5 pp [CI95 +2.4, +4.5]; $+47,873 [CI95 +33,262, +61,750]
 - Wilcoxon p = 0.000; sign test 26/30 wins, p = 0.000
 
 ### scarce (n = 30 pairs)
 - bid_price: retention 85.9%, latency 1.211 us/decision
-- dual_price: retention 86.6%, latency 16.687 us/decision
-- dual_price_vf: retention 90.2%, latency 16.997 us/decision
+- dual_price: retention 86.6%, latency 16.664 us/decision
+- dual_price_vf: retention 90.2%, latency 17.814 us/decision
 - rollout_teacher: retention 100.0%, latency 48.03 ms
 - surrogate_linear: retention 91.1%, latency 74.760 us/decision
 - paired vf-surrogate: -0.9 pp [CI95 -3.1, +1.4]; $-9,625 [CI95 -31,736, +13,376]
@@ -22,8 +22,8 @@
 
 ### tight (n = 30 pairs)
 - bid_price: retention 91.1%, latency 1.256 us/decision
-- dual_price: retention 91.2%, latency 22.704 us/decision
-- dual_price_vf: retention 95.4%, latency 23.421 us/decision
+- dual_price: retention 91.2%, latency 24.725 us/decision
+- dual_price_vf: retention 95.4%, latency 25.444 us/decision
 - rollout_teacher: retention 100.0%, latency 74.45 ms
 - surrogate_linear: retention 93.4%, latency 80.704 us/decision
 - paired vf-surrogate: +2.1 pp [CI95 +0.5, +3.7]; $+25,095 [CI95 +6,072, +43,794]
@@ -32,14 +32,14 @@
 ## Table 2 inputs: certificates
 
 ### tight (10 instances)
-- dual_price_vf: certified >= 60.1% of hindsight optimum (57.0--63.3)
-- rollout_teacher: certified >= 62.8% of hindsight optimum (60.5--66.8)
-- mean bound-solve time: 118 minutes
+- dual_price_vf: certified >= 60.1% of hindsight optimum (57.0--63.2)
+- rollout_teacher: certified >= 62.8% of hindsight optimum (60.3--66.9)
+- mean bound-solve time: 1019 minutes
 
 ### scarce (10 instances)
-- dual_price_vf: certified >= 57.7% of hindsight optimum (53.5--61.5)
-- rollout_teacher: certified >= 63.7% of hindsight optimum (61.2--65.3)
-- mean bound-solve time: 141 minutes
+- dual_price_vf: certified >= 57.6% of hindsight optimum (53.3--61.3)
+- rollout_teacher: certified >= 63.6% of hindsight optimum (61.1--65.2)
+- mean bound-solve time: 1177 minutes
 
 ## Table 3 inputs: proportional scaling (tight, pair 0)
 - tight_x05 (K=35): bound/K $26,780, policy/K $17,242, policy vs rollout 116.6%, certified gap 35.6%

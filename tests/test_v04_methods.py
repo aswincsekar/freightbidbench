@@ -202,6 +202,79 @@ class JointOptimumTests(unittest.TestCase):
         self.assertGreater(v_joint, 0.0)  # contended instance, not degenerate
 
 
+class BoundValidityTests(unittest.TestCase):
+    """The bucketed per-truck solver must upper-bound the exact
+    one-truck optimum (reviewer round 17: rounding HOS usage down is
+    not permissive on its own, because mandatory rests renew clocks;
+    the relaxed system's voluntary-rest action restores validity)."""
+
+    @classmethod
+    def _stream(cls):
+        import json
+        import sys
+
+        sys.path.insert(0, str(REPO / "scripts"))
+        import run_closed_loop_baselines as rbase
+        import run_lagrangian_bound as rlag
+        import run_surrogate_cascade as rsc
+
+        config = json.loads(
+            (REPO / "configs/freightbidbench_v03_scenarios.json").read_text()
+        )
+        scenario = rlag.scenario_from_config(config["scenarios"]["tight"])
+        lanes = rbase.load_csv(rbase.LANES)
+        return rlag, rsc.generate_loads_with_seed(lanes, scenario, 20260509)
+
+    def test_hos_reset_counterexample(self):
+        """Loads 5, 481, 608 of the tight 20260509 stream: the exact
+        one-truck plan takes all three via a clock-renewing reset; the
+        pre-fix solver dropped load 5 and reported $5,174.83 against
+        the exact $6,760.01."""
+        from scripts import run_joint_optimum as jo
+
+        rlag, stream = self._stream()
+        loads = sorted(
+            (l for l in stream if int(l["load_id"]) in (5, 481, 608)),
+            key=lambda l: float(l["hour"]),
+        )
+        start = rlag.TruckDPState("48", 0.0, 0.0, 0.0, 0.0)
+        best = rlag.solve_truck_sub_mdp(start, loads, {}, 0.0, {}, "t0")
+        exact = jo.joint_optimum([start], loads, 0.0, {})
+        self.assertGreaterEqual(best.value + 1e-6, exact)
+        self.assertAlmostEqual(exact, 6760.01, places=2)
+
+    def test_randomized_one_truck_upper_bound(self):
+        """Random small one-truck instances: the bucketed solver at
+        zero duals must never fall below the exact joint DP."""
+        from scripts import run_joint_optimum as jo
+
+        rlag, stream = self._stream()
+        rng = random.Random(20260811)
+        markets = sorted({str(l["origin_state"]) for l in stream})
+        for trial in range(12):
+            market = rng.choice(markets)
+            local = [
+                l for l in stream if str(l["origin_state"]) == market
+            ]
+            if len(local) < 4:
+                continue
+            picks = sorted(
+                rng.sample(local, min(6, len(local))),
+                key=lambda l: float(l["hour"]),
+            )
+            start = rlag.TruckDPState(market, 0.0, 0.0, 0.0, 0.0)
+            best = rlag.solve_truck_sub_mdp(start, picks, {}, 0.0, {}, "t")
+            exact = jo.joint_optimum([start], picks, 0.0, {})
+            # joint_optimum rounds each profit to integer cents
+            # (round-half can go up); the solver sums raw floats, so
+            # allow half a cent per load of comparison slack.
+            self.assertGreaterEqual(
+                best.value + 0.005 * len(picks) + 1e-6,
+                exact,
+                f"bound violation on trial {trial} market {market}",
+            )
+
+
 class ScalingCrossfitAggregationTests(unittest.TestCase):
     def test_artifact_regenerates_from_run_directories(self):
         """The checked-in scaling_crossfit.csv must be reproducible
@@ -317,16 +390,16 @@ class TrackbAnalysisTests(unittest.TestCase):
             out,
         )
         self.assertIn("max 0.71 pp", out)
-        self.assertIn("tight_x1: certified gap 45.5", out)
+        self.assertIn("tight_x1: certified gap 41.2", out)
         # Cross-fitted scaling (deployment-valid Table 3 columns).
         self.assertIn(
             "tight_x05: vs rollout 103.9 +- 4.1%,"
-            " certified gap 38.1 +- 1.3%",
+            " certified gap 35.2 +- 1.3%",
             out,
         )
         # Out-of-sample cross-fit and honest guard diagnostics.
         self.assertIn(
-            "sub_x2: certified 51.0 +- 1.2%"
+            "sub_x2: certified 45.5 +- 1.1%"
             " (out of sample; by evaluation stream, n=3)",
             out,
         )
@@ -340,10 +413,10 @@ class TrackbAnalysisTests(unittest.TestCase):
         self.assertIn("tight  3h: +3.60 pp [CI95 +2.05, +5.09]", out)
         self.assertIn("tight  2h: +4.07 pp", out)
         self.assertIn("scarce  6h: +8.31 pp", out)
-        self.assertIn("mild  1h: -7.29 pp", out)
+        self.assertIn("mild  1h: -7.28 pp", out)
         # Policy-agnostic certifier: the tuned DLP is itself certified.
-        self.assertIn("tight: dlp 3h certified >= 62.7% (57.4--65.0)", out)
-        self.assertIn("scarce: dlp 6h certified >= 61.0% (56.1--63.8)", out)
+        self.assertIn("tight: dlp 3h certified >= 62.7% (57.3--65.0)", out)
+        self.assertIn("scarce: dlp 6h certified >= 61.0% (56.1--63.9)", out)
         # Bonferroni simultaneous CIs regenerate with the documented seed.
         self.assertIn("tight: +2.09 pp [+0.14, +4.01] excludes 0", out)
         # Assumption-matched family (30 train/eval pairs per size,
@@ -705,7 +778,7 @@ class AnalysisRegenerationTests(unittest.TestCase):
             certs["tight"]["dual_price_vf_mean_pct"], 60.1, delta=0.1
         )
         self.assertAlmostEqual(
-            certs["scarce"]["dual_price_vf_mean_pct"], 57.7, delta=0.1
+            certs["scarce"]["dual_price_vf_mean_pct"], 57.6, delta=0.1
         )
 
     def test_scaling_table_regenerates_from_artifacts(self):

@@ -47,7 +47,9 @@ import run_surrogate_cascade as sc  # noqa: E402
 
 CELLS = ("sub_x05", "sub_x1", "sub_x2")
 SEEDS = (20260509, 20260511, 20260513)
-SUB_DIR = ROOT / "benchmark_runs" / "trackb" / "subcritical"
+# Corrected-solver directories (the invalid-solver originals are
+# retained under benchmark_runs/trackb/subcritical for the audit).
+SUB_DIR = ROOT / "benchmark_runs" / "v041_fix" / "subcritical"
 CONFIG = ROOT / "configs" / "freightbidbench_v041_subcritical.json"
 
 

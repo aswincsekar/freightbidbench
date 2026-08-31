@@ -19,7 +19,7 @@ Usage:
     python3 scripts/analyze_v04_results.py \
         --seed30-dir benchmark_runs/v04_dev/seed30 \
         --mild-dir benchmark_runs/v04_dev/seed30_mild_fitted \
-        --certs-dir benchmark_runs/v04_dev/certs \
+        --certs-dir benchmark_runs/v041_fix/certs \
         --output-dir benchmark_runs/v04_dev/analysis
 """
 
@@ -343,7 +343,12 @@ def main() -> None:
     parser.add_argument(
         "--mild-dir", default="benchmark_runs/v04_dev/seed30_mild_fitted"
     )
-    parser.add_argument("--certs-dir", default="benchmark_runs/v04_dev/certs")
+    parser.add_argument(
+        "--certs-dir",
+        default="benchmark_runs/v041_fix/certs",
+        help="corrected-solver certificate solves (the invalid-solver "
+        "originals are retained under benchmark_runs/v04_dev/certs)",
+    )
     parser.add_argument(
         "--output-dir", default="benchmark_runs/v04_dev/analysis"
     )

@@ -73,10 +73,16 @@ def section_portability() -> None:
 def section_scaling() -> None:
     print("== multi-seed scaling (tight cells, 3 fresh seeds) ==")
     cells: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for d in sorted((TRACKB / "scaling").iterdir()):
-        if not (d / BOUND).exists():
+    fix_scaling = ROOT / "benchmark_runs" / "v041_fix" / "scaling"
+    for d in sorted(fix_scaling.iterdir()):
+        if d.name.endswith("_ext1") or not (d / BOUND).exists():
             continue
-        rec = next(iter(read(d / BOUND)))
+        best = min(
+            float(next(iter(read(p / BOUND)))["best_bound"])
+            for p in (d, fix_scaling / (d.name + "_ext1"))
+            if (p / BOUND).exists()
+        )
+        rec = {"best_bound": best}
         rows = read(TRACKB / "scaling_eval" / d.name / RUNS)
         prof = {r["policy"]: float(r["profit"]) for r in rows}
         gap = 100 * (1 - prof["dual_price_vf"] / float(rec["best_bound"]))
@@ -122,7 +128,10 @@ def best_bound_across_budgets(name: str) -> dict[str, float]:
     """Bound per solver budget for a subcritical cell: base, _ext, _ext2."""
     out: dict[str, float] = {}
     for suffix in ("", "_ext", "_ext2"):
-        summ = TRACKB / "subcritical" / (name + suffix) / BOUND
+        summ = (
+            ROOT / "benchmark_runs" / "v041_fix" / "subcritical"
+            / (name + suffix) / BOUND
+        )
         if summ.exists():
             out[suffix or "base"] = float(next(iter(read(summ)))["best_bound"])
     return out
@@ -297,7 +306,9 @@ def section_dlp_certs() -> None:
     bound-solved instances per stress scenario -- the
     policy-agnostic-certifier row of the certificates table."""
     print("== tuned-DLP certificates (pairs 1-10, certs bounds) ==")
-    certs = ROOT / "benchmark_runs" / "v04_dev" / "certs"
+    # Corrected-solver certificates (invalid originals retained
+    # under v04_dev/certs for the audit).
+    certs = ROOT / "benchmark_runs" / "v041_fix" / "certs"
     for scen in ("tight", "scarce"):
         cadence = tuned_cadence(scen)
         dlp = {

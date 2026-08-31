@@ -1,2 +1,2 @@
 scenario,pair_index,train_seed,eval_seed,policy,profit,retention_vs_rollout,mean_latency_ms,accepted,infeasible,service_failure_penalty_cost,terminal_fleet_value
-tight_x2,2,20260510,20260511,dual_price_vf,2380752.01,,0.049196,898,0,0.00,62353.05
+tight_x2,2,20260510,20260511,dual_price_vf,2380752.01,,0.046541,898,0,0.00,62353.05

@@ -69,13 +69,20 @@ class TruckDPState:
     accepted_load_ids: tuple[int, ...] = field(default_factory=tuple)
 
 
-# Bucket granularities chosen to preserve upper-bound validity:
-# rounding down on each dimension is "favorable" to the truck (more time,
-# more HOS budget), so per-truck values can only increase, keeping the
-# overall Lagrangian bound a valid upper bound on V*.
+# Bucket granularities. Rounding clocks down is NOT permissive on its
+# own: mandatory rests RENEW clocks, so a higher-usage state can be
+# strictly more valuable when service triggers a reset (value is not
+# monotone in HOS usage). The relaxed per-truck system therefore also
+# grants a VOLUNTARY timed rest action (RESET_HOURS wall-clock, clocks
+# renewed) before any service. Adding actions keeps the per-truck
+# optimum an upper bound on the true one unconditionally, and it
+# restores the dominance argument the bucketing needs: a lower-usage
+# state can reproduce any renewed-clock state a higher-usage plan
+# reaches by resting voluntarily, at no later a completion time.
 TIME_BUCKET_HOURS = 0.25  # 15-minute buckets
 DRIVE_BUCKET_HOURS = 1.0
 DUTY_BUCKET_HOURS = 1.0
+VOLUNTARY_REST_HOURS = feas.RESET_HOURS
 
 
 def bucket_key_and_snapped(
@@ -224,20 +231,36 @@ def solve_truck_sub_mdp(
         # need to relocate the successful accepts.
         accept_branches: list[TruckDPState] = []
         for state in list(matching.values()):
-            accepted, profit, new_state = transition_under_accept(
-                state, load, truck_id
-            )
-            if not accepted:
-                continue
-            adjusted = TruckDPState(
-                location=new_state.location,
-                available_time=new_state.available_time,
-                drive_used=new_state.drive_used,
-                duty_used=new_state.duty_used,
-                value=state.value + profit - lam,
-                accepted_load_ids=new_state.accepted_load_ids,
-            )
-            accept_branches.append(adjusted)
+            candidates = [state]
+            if state.drive_used > 0.0 or state.duty_used > 0.0:
+                # Voluntary timed rest before service: the relaxed
+                # system's extra action (see bucket-granularity note).
+                candidates.append(
+                    TruckDPState(
+                        location=state.location,
+                        available_time=state.available_time
+                        + VOLUNTARY_REST_HOURS,
+                        drive_used=0.0,
+                        duty_used=0.0,
+                        value=state.value,
+                        accepted_load_ids=state.accepted_load_ids,
+                    )
+                )
+            for cand in candidates:
+                accepted, profit, new_state = transition_under_accept(
+                    cand, load, truck_id
+                )
+                if not accepted:
+                    continue
+                adjusted = TruckDPState(
+                    location=new_state.location,
+                    available_time=new_state.available_time,
+                    drive_used=new_state.drive_used,
+                    duty_used=new_state.duty_used,
+                    value=cand.value + profit - lam,
+                    accepted_load_ids=new_state.accepted_load_ids,
+                )
+                accept_branches.append(adjusted)
         # Merge accept-branch states into their destination buckets.
         for state in accept_branches:
             dest_bucket = frontier.setdefault(state.location, {})

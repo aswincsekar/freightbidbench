@@ -14,7 +14,9 @@ mkdir -p "$OUT"
 
 for cell in tight_x05 tight_x1 tight_x2; do
   for train in 20260509 20260511 20260513; do
-    d="benchmark_runs/trackb/scaling/${cell}_${train}"
+    # Corrected-solver duals (invalid originals retained under
+    # trackb/scaling for the audit).
+    d="benchmark_runs/v041_fix/scaling/${cell}_${train}"
     python3 scripts/fit_dual_prices.py --config "$SCFG" --scenario "$cell" \
       --eval-seed "$train" --duals-csv "$d/lagrangian_dual_prices.csv"
     python3 scripts/fit_value_togo.py --config "$SCFG" --scenario "$cell" \
@@ -30,7 +32,7 @@ for cell in tight_x05 tight_x1 tight_x2; do
         --output-dir "$dir"
       # The runner CSV's train_seed column records the paired stream's
       # nominal seed; the fitted tables' actual provenance is here.
-      printf '{\n "table_train_seed": %s,\n "table_source": "benchmark_runs/trackb/scaling/%s_%s/lagrangian_dual_prices.csv",\n "eval_seed": %s\n}\n' \
+      printf '{\n "table_train_seed": %s,\n "table_source": "benchmark_runs/v041_fix/scaling/%s_%s/lagrangian_dual_prices.csv",\n "eval_seed": %s\n}\n' \
         "$train" "$cell" "$train" "$eval" > "$dir/manifest.json"
     done
   done

@@ -1,0 +1,2 @@
+scenario,scenario_name,eval_seed,loads_seen,fleet_size_evaluated,iterations,step_scale,initial_bound_L0,best_bound,best_iteration_overuse_count,elapsed_seconds
+sub_x2,freightbidbench_sub_x2,20260511,1735,240,45,100.0,7694284.69,6987475.87,23,402720.3728

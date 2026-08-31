@@ -32,7 +32,9 @@ def best_bound(cell: str, seed: int) -> float:
     """Deepest available bound for the evaluation seed's own solve
     (base directory plus any warm extensions)."""
     bound = None
-    base_dir = TRACKB / "scaling"
+    # Corrected-solver bounds (invalid originals retained under
+    # trackb/scaling for the audit).
+    base_dir = ROOT / "benchmark_runs" / "v041_fix" / "scaling"
     for d in sorted(base_dir.glob(f"{cell}_{seed}*")):
         summ = d / "lagrangian_bound_summary.csv"
         if summ.exists():
