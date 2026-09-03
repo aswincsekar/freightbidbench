@@ -38,6 +38,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import certified_bound  # noqa: E402
 import fit_dual_prices  # noqa: E402
 import fit_value_togo  # noqa: E402
 import freight_feasibility as feas  # noqa: E402
@@ -54,15 +55,11 @@ CONFIG = ROOT / "configs" / "freightbidbench_v041_subcritical.json"
 
 
 def best_bound(cell: str, seed: int) -> float:
-    bound = None
-    for suffix in ("", "_ext", "_ext2"):
-        summ = SUB_DIR / f"{cell}_{seed}{suffix}" / "lagrangian_bound_summary.csv"
-        if summ.exists():
-            rec = next(csv.DictReader(summ.open()))
-            value = float(rec["best_bound"])
-            bound = value if bound is None else min(bound, value)
-    assert bound is not None, f"no bound for {cell}_{seed}"
-    return bound
+    """Tightest sound-certified bound over the seed's base solve and
+    warm extensions (each certified at its own incumbent duals)."""
+    return certified_bound.best_certified_bound(
+        [SUB_DIR / f"{cell}_{seed}{suffix}" for suffix in ("", "_ext", "_ext2")]
+    )
 
 
 def inject_tables(

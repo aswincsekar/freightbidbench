@@ -29,8 +29,13 @@ import argparse
 import csv
 import math
 import random
+import sys
 from collections import defaultdict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import certified_bound  # noqa: E402
 
 RUNS_FILENAME = "dual_price_experiment_runs.csv"
 BOUND_FILENAME = "lagrangian_bound_summary.csv"
@@ -217,7 +222,9 @@ def analyze_certs(
                 continue
             with summary.open(newline="", encoding="utf-8") as handle:
                 rec = next(csv.DictReader(handle))
-            bound = float(rec["best_bound"])
+            # The certificate divides by the sound-solver evaluation of
+            # the search's incumbent duals, not the search's own value.
+            bound = certified_bound.read_certified_bound(bound_dir)
             elapsed.append(float(rec["elapsed_seconds"]))
             for policy in (POLICY_A, "rollout_teacher"):
                 key = (scen, rec["eval_seed"], policy)
@@ -233,54 +240,9 @@ def analyze_certs(
     return out
 
 
-SCALING_BOUND_DIRS = {
-    "tight_x05": "benchmark_runs/v04_dev/scaling/tight_x05_warm",
-    "tight_x1": "benchmark_runs/lagrangian_bound_full_v6_warm",
-    "tight_x2": "benchmark_runs/v04_dev/scaling/tight_x2_warm",
-}
-
-
-def analyze_scaling(repo_root: Path, diag_csv: Path) -> list[dict[str, object]]:
-    """Table 3: proportional-scaling cells (in-sample, pair 0).
-
-    Policy and rollout profits come from the scaling rollout
-    diagnostic run; each cell's bound comes from its
-    plateau-converged solve (the x1 cell reuses the deep tight solve
-    --- same scenario, same seed, more iterations).
-    """
-    profits: dict[tuple[str, str], float] = {}
-    retention: dict[str, float] = {}
-    for row in read_runs(diag_csv):
-        profits[(row["scenario"], row["policy"])] = float(row["profit"])
-        if row["policy"] == POLICY_A and row["retention_vs_rollout"]:
-            retention[row["scenario"]] = 100 * float(
-                row["retention_vs_rollout"]
-            )
-    out: list[dict[str, object]] = []
-    for cell, bound_dir in SCALING_BOUND_DIRS.items():
-        summary = repo_root / bound_dir / BOUND_FILENAME
-        with summary.open(newline="", encoding="utf-8") as handle:
-            rec = next(csv.DictReader(handle))
-        bound = float(rec["best_bound"])
-        fleet = int(rec["fleet_size_evaluated"])
-        policy = profits[(cell, POLICY_A)]
-        out.append(
-            {
-                "cell": cell,
-                "K": fleet,
-                "bound_per_k": bound / fleet,
-                "policy_per_k": policy / fleet,
-                "policy_vs_rollout_pct": retention.get(cell),
-                "certified_gap_pct": 100 * (1 - policy / bound),
-            }
-        )
-    return out
-
-
 def write_report(
     methods: list[dict[str, object]],
     certs: list[dict[str, object]],
-    scaling: list[dict[str, object]],
     output_dir: Path,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -323,14 +285,10 @@ def write_report(
             f"- mean bound-solve time: {float(c['mean_solve_seconds']) / 60:.0f}"
             " minutes"
         )
-    lines.append("\n## Table 3 inputs: proportional scaling (tight, pair 0)")
-    for s in scaling:
-        lines.append(
-            f"- {s['cell']} (K={s['K']}): bound/K ${s['bound_per_k']:,.0f},"
-            f" policy/K ${s['policy_per_k']:,.0f},"
-            f" policy vs rollout {s['policy_vs_rollout_pct']:.1f}%,"
-            f" certified gap {s['certified_gap_pct']:.1f}%"
-        )
+    lines.append(
+        "\n## Table 3 inputs: see scripts/aggregate_scaling_crossfit.py"
+        " (cross-fitted, sound-certified scaling cells)"
+    )
     report = output_dir / "v04_analysis_report.md"
     report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Wrote {report}")
@@ -352,11 +310,6 @@ def main() -> None:
     parser.add_argument(
         "--output-dir", default="benchmark_runs/v04_dev/analysis"
     )
-    parser.add_argument(
-        "--scaling-diag-csv",
-        default="benchmark_runs/v04_dev/scaling_rollout_diag/"
-        "dual_price_experiment_runs.csv",
-    )
     parser.add_argument("--bootstrap-resamples", type=int, default=20000)
     parser.add_argument("--bootstrap-seed", type=int, default=20260701)
     args = parser.parse_args()
@@ -366,8 +319,7 @@ def main() -> None:
         rows_by_scen, args.bootstrap_resamples, args.bootstrap_seed
     )
     certs = analyze_certs(rows_by_scen, Path(args.certs_dir))
-    scaling = analyze_scaling(Path("."), Path(args.scaling_diag_csv))
-    write_report(methods, certs, scaling, Path(args.output_dir))
+    write_report(methods, certs, Path(args.output_dir))
 
 
 if __name__ == "__main__":

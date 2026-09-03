@@ -16,9 +16,13 @@ Usage:
 from __future__ import annotations
 
 import csv
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import certified_bound  # noqa: E402
 TRACKB = ROOT / "benchmark_runs" / "trackb"
 RUNS = "dual_price_experiment_runs.csv"
 
@@ -29,19 +33,14 @@ def read(path: Path) -> list[dict[str, str]]:
 
 
 def best_bound(cell: str, seed: int) -> float:
-    """Deepest available bound for the evaluation seed's own solve
-    (base directory plus any warm extensions)."""
-    bound = None
-    # Corrected-solver bounds (invalid originals retained under
-    # trackb/scaling for the audit).
+    """Tightest sound-certified bound for the evaluation seed's own
+    solves (base directory plus any warm extensions, each certified at
+    its own incumbent duals). Search-only originals are retained under
+    trackb/scaling for the audit."""
     base_dir = ROOT / "benchmark_runs" / "v041_fix" / "scaling"
-    for d in sorted(base_dir.glob(f"{cell}_{seed}*")):
-        summ = d / "lagrangian_bound_summary.csv"
-        if summ.exists():
-            value = float(next(iter(read(summ)))["best_bound"])
-            bound = value if bound is None else min(bound, value)
-    assert bound is not None, f"no bound for {cell}_{seed}"
-    return bound
+    return certified_bound.best_certified_bound(
+        sorted(base_dir.glob(f"{cell}_{seed}*"))
+    )
 
 
 def aggregate(out_path: Path | None = None) -> list[dict[str, object]]:

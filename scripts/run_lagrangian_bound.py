@@ -69,16 +69,17 @@ class TruckDPState:
     accepted_load_ids: tuple[int, ...] = field(default_factory=tuple)
 
 
-# Bucket granularities. Rounding clocks down is NOT permissive on its
-# own: mandatory rests RENEW clocks, so a higher-usage state can be
-# strictly more valuable when service triggers a reset (value is not
-# monotone in HOS usage). The relaxed per-truck system therefore also
-# grants a VOLUNTARY timed rest action (RESET_HOURS wall-clock, clocks
-# renewed) before any service. Adding actions keeps the per-truck
-# optimum an upper bound on the true one unconditionally, and it
-# restores the dominance argument the bucketing needs: a lower-usage
-# state can reproduce any renewed-clock state a higher-usage plan
-# reaches by resting voluntarily, at no later a completion time.
+# Bucket granularities. Rounding clocks and time down is NOT permissive
+# on its own: mandatory rests RENEW clocks, and waits under RESET_HOURS
+# do not, so the per-truck value is monotone in neither clock usage nor
+# availability (a favorably snapped state can skip a forced rest, lose
+# its lead waiting for a window, and exhaust later). Validity therefore
+# does not rest on dominance of the snapped corner. Instead each
+# frontier entry stands for every state at least as bad as it, and the
+# "sound" solver mode generates enough accept successors to cover all
+# of their schedules (schedule_cover); see the module docstring of
+# solve_truck_sub_mdp. VOLUNTARY_REST_HOURS is used only by the legacy
+# "corner" mode.
 TIME_BUCKET_HOURS = 0.25  # 15-minute buckets
 DRIVE_BUCKET_HOURS = 1.0
 DUTY_BUCKET_HOURS = 1.0
@@ -196,6 +197,186 @@ def transition_under_accept(
 
 FrontierBucket = dict[tuple[int, int, int], TruckDPState]
 
+# Solver modes. "sound": each frontier entry stands for every state at
+# least as bad as it (later, more clock usage) at that location, and an
+# accept generates enough successor corners to cover the schedules of
+# all such states -- valid with no monotonicity assumption (the paper's
+# soundness lemma). "corner": the legacy rule (the entry's own schedule
+# plus a voluntary rest before service), retained for the audit trail;
+# it is NOT a valid upper bound in general (see
+# tests.test_v04_methods.BoundValidityTests.test_corner_rule_counterexample).
+SOLVER_MODES = ("sound", "corner")
+DEFAULT_SOLVER_MODE = "sound"
+
+
+def _work_primitive_branches(
+    time: float,
+    hours: float,
+    drive_used: float,
+    duty_used: float,
+    kind: str,
+) -> list[tuple[float, float, float]]:
+    """Outcomes of one HOS work primitive that together cover every
+    state worse than the input.
+
+    The concrete outcome covers all worse states that reset the same
+    number of times. A worse state can reset at most once more (its
+    capacity lies within one renewal cycle below the input's), and
+    among those the most favorable outcome is the limit in which the
+    extra reset falls at the very end of the primitive: fresh clocks,
+    one more rest of wall-clock. That corner exists iff the primitive's
+    work exceeds the concrete reset count times the cycle length.
+    """
+    if kind == "drive":
+        t, d, u, rest = feas.add_drive(time, hours, drive_used, duty_used)
+        cycle = feas.MAX_DRIVE_HOURS
+    else:
+        t, d, u, rest = feas.add_on_duty(time, hours, drive_used, duty_used)
+        cycle = feas.MAX_DUTY_HOURS
+    branches = [(t, d, u)]
+    if feas.ACTIVE_CONFIG.enable_hos:
+        resets = int(round(rest / feas.RESET_HOURS))
+        if hours - resets * cycle > 1e-9:
+            branches.append(
+                (time + hours + (resets + 1) * feas.RESET_HOURS, 0.0, 0.0)
+            )
+    return branches
+
+
+def schedule_cover(
+    truck: feas.TruckState,
+    load: dict[str, object],
+    decision_hour: float,
+) -> list[tuple[float, float, float]]:
+    """Every (available_time, drive_used, duty_used) outcome needed to
+    cover the schedules of all states at least as bad as ``truck``.
+
+    Mirrors ``feas.plan_schedule`` stage by stage; the first element is
+    always the concrete schedule of ``truck`` itself when feasible.
+    Window checks discard a branch when it misses; a worse state can
+    then only miss as well, and waits never need a split (a worse
+    state either waits less or renews no more than the branch does).
+    """
+    config = feas.ACTIVE_CONFIG
+    states = [
+        (
+            max(decision_hour, truck.available_time),
+            truck.drive_used_hours,
+            truck.duty_used_hours,
+        )
+    ]
+
+    def work(kind: str, hours: float) -> None:
+        nonlocal states
+        states = [
+            b
+            for s in states
+            for b in _work_primitive_branches(s[0], hours, s[1], s[2], kind)
+        ]
+
+    work("drive", float(load.get("pickup_deadhead_hours", 0.0)))
+    pickup_earliest = float(load.get("pickup_earliest", decision_hour))
+    pickup_latest = float(load.get("pickup_latest", pickup_earliest + 4.0))
+    if config.enable_time_windows:
+        states = [s for s in states if s[0] <= pickup_latest]
+        states = [
+            feas.maybe_reset_for_wait(s[0], pickup_earliest, s[1], s[2])
+            for s in states
+        ]
+    work(
+        "duty",
+        feas.PICKUP_BASE_SERVICE_HOURS
+        + float(load.get("pickup_yard_delay_hours", 0.0)),
+    )
+    work(
+        "drive",
+        float(load.get("linehaul_drive_hours", load.get("travel_hours", 0.0))),
+    )
+    if config.enable_time_windows:
+        kept = []
+        for s in states:
+            d_earliest = float(load.get("delivery_earliest", s[0]))
+            d_latest = float(load.get("delivery_latest", s[0] + 12.0))
+            if s[0] > d_latest:
+                continue
+            kept.append(feas.maybe_reset_for_wait(s[0], d_earliest, s[1], s[2]))
+        states = kept
+    work(
+        "duty",
+        feas.DROPOFF_BASE_SERVICE_HOURS
+        + float(load.get("dropoff_yard_delay_hours", 0.0)),
+    )
+    # Deduplicate coincident corners.
+    seen: set[tuple[float, float, float]] = set()
+    unique: list[tuple[float, float, float]] = []
+    for s in states:
+        if s not in seen:
+            seen.add(s)
+            unique.append(s)
+    return unique
+
+
+def accept_successors(
+    state: TruckDPState,
+    load: dict[str, object],
+    truck_id: str,
+    mode: str,
+) -> list[tuple[float, TruckDPState]]:
+    """All ``(profit, new_state)`` accept outcomes generated from a
+    frontier entry under the given solver mode."""
+    if mode == "corner":
+        candidates = [state]
+        if state.drive_used > 0.0 or state.duty_used > 0.0:
+            candidates.append(
+                TruckDPState(
+                    location=state.location,
+                    available_time=state.available_time + VOLUNTARY_REST_HOURS,
+                    drive_used=0.0,
+                    duty_used=0.0,
+                    value=state.value,
+                    accepted_load_ids=state.accepted_load_ids,
+                )
+            )
+        out = []
+        for cand in candidates:
+            accepted, profit, new_state = transition_under_accept(
+                cand, load, truck_id
+            )
+            if accepted:
+                out.append((profit, new_state))
+        return out
+    if mode != "sound":
+        raise ValueError(f"unknown solver mode {mode!r}")
+    config = feas.ACTIVE_CONFIG
+    decision_hour = float(load["hour"])
+    pickup_latest = float(load.get("pickup_latest", decision_hour + 4.0))
+    if config.enable_time_windows and state.available_time > pickup_latest:
+        return []
+    truck = feas.TruckState(
+        truck_id,
+        state.location,
+        state.available_time,
+        state.drive_used,
+        state.duty_used,
+    )
+    profit, _extra_cost = feas.realized_profit(load)
+    destination = str(load["destination_state"])
+    load_id = int(load["load_id"])
+    return [
+        (
+            profit,
+            TruckDPState(
+                location=destination,
+                available_time=t,
+                drive_used=d,
+                duty_used=u,
+                value=state.value + profit,
+                accepted_load_ids=state.accepted_load_ids + (load_id,),
+            ),
+        )
+        for t, d, u in schedule_cover(truck, load, decision_hour)
+    ]
+
 
 def solve_truck_sub_mdp(
     initial_state: TruckDPState,
@@ -204,15 +385,21 @@ def solve_truck_sub_mdp(
     terminal_value_weight: float,
     state_values: dict[str, float],
     truck_id: str,
+    mode: str = DEFAULT_SOLVER_MODE,
 ) -> TruckDPState:
     """Solve the per-truck Lagrangian sub-MDP with bucketed state space.
 
-    The frontier is a nested dict: location -> bucket key -> state. Bucket
-    granularities (TIME_BUCKET_HOURS, DRIVE_BUCKET_HOURS, DUTY_BUCKET_HOURS)
-    are chosen to preserve upper-bound validity: rounding clocks down is
-    favorable to the truck, so per-truck values can only increase relative
-    to the exact DP, keeping the Lagrangian bound a valid upper bound on
-    V*. The bucketing collapses near-duplicate states, controlling the
+    The frontier is a nested dict: location -> bucket key -> state. Each
+    entry is snapped to its bucket's favorable corner and stands for
+    every state at least as bad as that corner; in "sound" mode the
+    accept successors of an entry cover the schedules of all those
+    states (``schedule_cover``), so by induction over the load sequence
+    every exact reachable state is covered by an entry of at least its
+    accumulated value, and the returned value upper-bounds the exact
+    per-truck optimum. Within-bucket merging keeps the maximum value
+    and cross-bucket pruning drops an entry whenever a corner at least
+    as favorable carries at least its value -- both preserve coverage.
+    The bucketing collapses near-duplicate states, controlling the
     frontier size and the cost of dominance comparisons.
     """
     frontier: dict[str, FrontierBucket] = {}
@@ -231,33 +418,15 @@ def solve_truck_sub_mdp(
         # need to relocate the successful accepts.
         accept_branches: list[TruckDPState] = []
         for state in list(matching.values()):
-            candidates = [state]
-            if state.drive_used > 0.0 or state.duty_used > 0.0:
-                # Voluntary timed rest before service: the relaxed
-                # system's extra action (see bucket-granularity note).
-                candidates.append(
-                    TruckDPState(
-                        location=state.location,
-                        available_time=state.available_time
-                        + VOLUNTARY_REST_HOURS,
-                        drive_used=0.0,
-                        duty_used=0.0,
-                        value=state.value,
-                        accepted_load_ids=state.accepted_load_ids,
-                    )
-                )
-            for cand in candidates:
-                accepted, profit, new_state = transition_under_accept(
-                    cand, load, truck_id
-                )
-                if not accepted:
-                    continue
+            for profit, new_state in accept_successors(
+                state, load, truck_id, mode
+            ):
                 adjusted = TruckDPState(
                     location=new_state.location,
                     available_time=new_state.available_time,
                     drive_used=new_state.drive_used,
                     duty_used=new_state.duty_used,
-                    value=cand.value + profit - lam,
+                    value=state.value + profit - lam,
                     accepted_load_ids=new_state.accepted_load_ids,
                 )
                 accept_branches.append(adjusted)
@@ -321,10 +490,12 @@ def _pool_init(
     sorted_loads: list[dict[str, object]],
     terminal_value_weight: float,
     state_values: dict[str, float],
+    mode: str = DEFAULT_SOLVER_MODE,
 ) -> None:
     _POOL_CTX["sorted_loads"] = sorted_loads
     _POOL_CTX["terminal_value_weight"] = terminal_value_weight
     _POOL_CTX["state_values"] = state_values
+    _POOL_CTX["mode"] = mode
 
 
 def _solve_truck_task(
@@ -338,6 +509,7 @@ def _solve_truck_task(
         _POOL_CTX["terminal_value_weight"],  # type: ignore[arg-type]
         _POOL_CTX["state_values"],  # type: ignore[arg-type]
         truck_id,
+        mode=str(_POOL_CTX.get("mode", DEFAULT_SOLVER_MODE)),
     )
 
 
@@ -382,15 +554,17 @@ def evaluate_lagrangian(
     terminal_value_weight: float,
     state_values: dict[str, float],
     pool: object | None = None,
+    mode: str = DEFAULT_SOLVER_MODE,
 ) -> LagrangianEvaluation:
     """Evaluate L(lambda) on a single realized scenario.
 
     Solves each truck's sub-MDP independently under the dual penalties,
     sums the per-truck values plus sum_t lambda_t (the constant term from
     the Lagrangian). The per-truck solves are independent; when ``pool``
-    (a multiprocessing.Pool primed with ``_pool_init``) is supplied they
-    run in parallel. ``Pool.map`` preserves task order, so the float
-    reduction order matches the serial path and results are bit-identical.
+    (a multiprocessing.Pool primed with ``_pool_init``, which fixes the
+    workers' solver mode) is supplied they run in parallel. ``Pool.map``
+    preserves task order, so the float reduction order matches the
+    serial path and results are bit-identical.
     """
     sorted_loads = sorted(loads, key=lambda load: float(load["hour"]))
     tasks = _truck_tasks(initial_fleet)
@@ -407,6 +581,7 @@ def evaluate_lagrangian(
                 terminal_value_weight,
                 state_values,
                 truck_id,
+                mode=mode,
             )
             for initial, truck_id in tasks
         ]
@@ -485,6 +660,7 @@ def subgradient_dual_loop(
     verbose: bool = False,
     workers: int = 1,
     checkpoint_dir: Path | None = None,
+    mode: str = DEFAULT_SOLVER_MODE,
 ) -> tuple[dict[int, float], LagrangianEvaluation, list[DualTrajectoryRecord]]:
     """Subgradient ascent on the dual L(lambda).
 
@@ -518,7 +694,7 @@ def subgradient_dual_loop(
         pool = multiprocessing.Pool(
             workers,
             initializer=_pool_init,
-            initargs=(sorted_loads, terminal_value_weight, state_values),
+            initargs=(sorted_loads, terminal_value_weight, state_values, mode),
         )
     try:
         for n in range(1, iterations + 1):
@@ -529,6 +705,7 @@ def subgradient_dual_loop(
                 terminal_value_weight,
                 state_values,
                 pool=pool,
+                mode=mode,
             )
             overuse_count = sum(1 for v in evaluation.accept_counts.values() if v > 1)
             avg_dual = sum(duals.values()) / max(1, len(duals))
@@ -639,6 +816,7 @@ def write_report(
     elapsed_seconds: float,
     lp_bound_reference: float | None = None,
     rollout_reference: float | None = None,
+    solver_mode: str = DEFAULT_SOLVER_MODE,
 ) -> None:
     lp_section = ""
     if lp_bound_reference is not None and lp_bound_reference > 0:
@@ -696,10 +874,13 @@ is dualized. The bound is valid by weak duality. Tightness depends on
 how well the dualized assignment constraint approximates the joint
 single-assignment integrality.
 
-State-space bucketing favors the upper bound: clocks are rounded down
-to the most-permissive corner of each bucket so the per-truck DP can
-only over-estimate the per-truck Lagrangian sup, preserving the
-joint upper-bound guarantee.
+State-space bucketing (solver mode `{solver_mode}`): each frontier entry
+is snapped to its bucket's most-permissive corner and stands for every
+state at least as bad as it. In `sound` mode an accept generates enough
+successor corners to cover the schedules of all those states, so the
+per-truck DP can only over-estimate the exact per-truck optimum and the
+joint upper-bound guarantee holds without any monotonicity assumption.
+The legacy `corner` mode is not a valid upper bound in general.
 """
     path.write_text(content, encoding="utf-8")
 
@@ -754,6 +935,14 @@ def build_parser() -> argparse.ArgumentParser:
         "processes (stdlib multiprocessing). Results are bit-identical "
         "to the serial path; default 1.",
     )
+    parser.add_argument(
+        "--solver-mode",
+        choices=SOLVER_MODES,
+        default=DEFAULT_SOLVER_MODE,
+        help="per-truck solver: 'sound' (covering successors; valid upper "
+        "bound) or the legacy 'corner' rule (audit trail only; not a valid "
+        "upper bound in general).",
+    )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     return parser
@@ -807,6 +996,7 @@ def main(argv: list[str] | None = None) -> None:
         initial_duals if initial_duals is not None else {},
         terminal_weight,
         state_values,
+        mode=args.solver_mode,
     )
     initial_bound = initial_eval.bound
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -822,6 +1012,7 @@ def main(argv: list[str] | None = None) -> None:
         verbose=args.verbose,
         workers=args.workers,
         checkpoint_dir=args.output_dir,
+        mode=args.solver_mode,
     )
     summary_rows = [
         {
@@ -832,6 +1023,7 @@ def main(argv: list[str] | None = None) -> None:
             "fleet_size_evaluated": sum(len(v) for v in initial_fleet.values()),
             "iterations": args.iterations,
             "step_scale": args.step_scale,
+            "solver_mode": args.solver_mode,
             "initial_bound_L0": f"{initial_bound:.2f}",
             "best_bound": f"{best_eval.bound:.2f}",
             "best_iteration_overuse_count": sum(
@@ -877,6 +1069,7 @@ def main(argv: list[str] | None = None) -> None:
         time.perf_counter() - start,
         lp_bound_reference=args.lp_bound_reference,
         rollout_reference=args.rollout_reference,
+        solver_mode=args.solver_mode,
     )
     print(
         f"Wrote {args.output_dir / 'lagrangian_bound_report.md'} "

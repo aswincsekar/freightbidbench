@@ -1,0 +1,2 @@
+scenario,eval_seed,loads_seen,fleet_size_evaluated,solver_mode,duals_source,search_best_bound,sound_bound,sound_minus_search_pct,elapsed_seconds,workers,platform,python
+sub_x05,20260509,455,60,sound,lagrangian_best_duals_checkpoint.csv,1291473.45,1291780.75,0.0238,1140.38,1,Linux-6.8.0-111-generic-x86_64-with-glibc2.39,3.12.3

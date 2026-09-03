@@ -204,9 +204,12 @@ class JointOptimumTests(unittest.TestCase):
 
 class BoundValidityTests(unittest.TestCase):
     """The bucketed per-truck solver must upper-bound the exact
-    one-truck optimum (reviewer round 17: rounding HOS usage down is
-    not permissive on its own, because mandatory rests renew clocks;
-    the relaxed system's voluntary-rest action restores validity)."""
+    one-truck optimum. Round 17: rounding HOS usage down is not
+    permissive on its own (mandatory rests renew clocks). Round 18:
+    the voluntary-rest corner rule is not sound either (value is not
+    monotone in the state; counterexample below); the "sound" mode
+    covers every state an entry stands for and needs no
+    monotonicity (paper Appendix, frontier-coverage theorem)."""
 
     @classmethod
     def _stream(cls):
@@ -244,8 +247,8 @@ class BoundValidityTests(unittest.TestCase):
         self.assertAlmostEqual(exact, 6760.01, places=2)
 
     def test_randomized_one_truck_upper_bound(self):
-        """Random small one-truck instances: the bucketed solver at
-        zero duals must never fall below the exact joint DP."""
+        """Random small one-truck instances: the sound bucketed solver
+        at zero duals must never fall below the exact joint DP."""
         from scripts import run_joint_optimum as jo
 
         rlag, stream = self._stream()
@@ -263,7 +266,9 @@ class BoundValidityTests(unittest.TestCase):
                 key=lambda l: float(l["hour"]),
             )
             start = rlag.TruckDPState(market, 0.0, 0.0, 0.0, 0.0)
-            best = rlag.solve_truck_sub_mdp(start, picks, {}, 0.0, {}, "t")
+            best = rlag.solve_truck_sub_mdp(
+                start, picks, {}, 0.0, {}, "t", mode="sound"
+            )
             exact = jo.joint_optimum([start], picks, 0.0, {})
             # joint_optimum rounds each profit to integer cents
             # (round-half can go up); the solver sums raw floats, so
@@ -273,6 +278,82 @@ class BoundValidityTests(unittest.TestCase):
                 exact,
                 f"bound violation on trial {trial} market {market}",
             )
+
+    # A one-load instance (found by randomized search, reviewer round
+    # 18) on which the legacy corner rule -- the entry's own schedule
+    # plus a voluntary rest before service -- certifies $0 while the
+    # exact truck earns the load: the exact truck is forced to rest 1.5 h
+    # into its deadhead and arrives fresh; the favorably snapped corner
+    # skips that rest, waits 9.76 h for the window (no renewal), exhausts
+    # during pickup service and misses delivery, and the rest-first
+    # alternative lacks drive hours for the linehaul. No corner can
+    # emulate a rest in the middle of a primitive.
+    COUNTEREXAMPLE_START = ("A", 0.0008178248256458798, 3.8432410125233534, 12.51720296748509)
+    COUNTEREXAMPLE_LOAD = {
+        "load_id": 0, "hour": 2.9784573894100195, "origin_state": "A",
+        "destination_state": "B", "price": 1000.0, "direct_cost": 0.0,
+        "base_cost_per_mile": 0.0, "pickup_deadhead_miles": 61.559705351603974,
+        "pickup_deadhead_hours": 1.6199922460948415,
+        "pickup_earliest": 14.360950913917575, "pickup_latest": 20.907450941210932,
+        "linehaul_drive_hours": 10.256203939309913, "travel_hours": 10.256203939309913,
+        "delivery_earliest": 21.829483311881564, "delivery_latest": 35.19430066191626,
+        "pickup_yard_delay_hours": 0.0, "dropoff_yard_delay_hours": 0.0,
+    }
+
+    def test_corner_rule_counterexample(self):
+        from scripts import run_joint_optimum as jo
+
+        rlag, _ = self._stream()
+        start = rlag.TruckDPState(*self.COUNTEREXAMPLE_START, 0.0)
+        loads = [dict(self.COUNTEREXAMPLE_LOAD)]
+        exact = jo.joint_optimum([start], loads, 0.0, {})
+        self.assertAlmostEqual(exact, 1000.0, places=6)
+        corner = rlag.solve_truck_sub_mdp(start, loads, {}, 0.0, {}, "t", mode="corner")
+        self.assertLess(corner.value, exact, "corner rule unexpectedly covers the instance")
+        sound = rlag.solve_truck_sub_mdp(start, loads, {}, 0.0, {}, "t", mode="sound")
+        self.assertGreaterEqual(sound.value + 1e-6, exact)
+
+    def test_schedule_cover_covers_worse_states(self):
+        """The coverage lemma's inductive step, mechanized: for a random
+        frontier corner q and random states y at least as bad as q,
+        every feasible schedule of y is at least as bad as some branch
+        of schedule_cover(q)."""
+        import freight_feasibility as feas
+
+        rlag, stream = self._stream()
+        rng = random.Random(20260901)
+        checked = 0
+        for _ in range(400):
+            load = rng.choice(stream)
+            hour = float(load["hour"])
+            q_time = hour - rng.uniform(0, 6)
+            q_drive = rng.uniform(0, feas.MAX_DRIVE_HOURS)
+            q_duty = rng.uniform(q_drive, feas.MAX_DUTY_HOURS)
+            q = feas.TruckState("q", str(load["origin_state"]), q_time, q_drive, q_duty)
+            cover = rlag.schedule_cover(q, load, hour)
+            for _ in range(8):
+                y = feas.TruckState(
+                    "y",
+                    q.state,
+                    q_time + rng.uniform(0, 12),
+                    min(feas.MAX_DRIVE_HOURS, q_drive + rng.uniform(0, 3)),
+                    min(feas.MAX_DUTY_HOURS, q_duty + rng.uniform(0, 3)),
+                )
+                if y.drive_used_hours > y.duty_used_hours:
+                    continue
+                sched = feas.plan_schedule(y, load, hour)
+                if not sched.feasible:
+                    continue
+                checked += 1
+                fy = (sched.final_available_time, sched.drive_used_hours, sched.duty_used_hours)
+                self.assertTrue(
+                    any(
+                        b[0] <= fy[0] + 1e-9 and b[1] <= fy[1] + 1e-9 and b[2] <= fy[2] + 1e-9
+                        for b in cover
+                    ),
+                    f"uncovered schedule {fy} for y={y} q={q} cover={cover}",
+                )
+        self.assertGreater(checked, 200)
 
 
 class ScalingCrossfitAggregationTests(unittest.TestCase):
@@ -845,7 +926,7 @@ class AnalysisRegenerationTests(unittest.TestCase):
         certs = {
             c["scenario"]: c
             for c in an.analyze_certs(
-                rows, REPO / "benchmark_runs/v04_dev/certs"
+                rows, REPO / "benchmark_runs/v041_fix/certs"
             )
         }
         self.assertAlmostEqual(
@@ -853,31 +934,6 @@ class AnalysisRegenerationTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             certs["scarce"]["dual_price_vf_mean_pct"], 57.6, delta=0.1
-        )
-
-    def test_scaling_table_regenerates_from_artifacts(self):
-        from scripts import analyze_v04_results as an
-
-        scaling = {
-            s["cell"]: s
-            for s in an.analyze_scaling(
-                REPO,
-                REPO
-                / "benchmark_runs/v04_dev/scaling_rollout_diag"
-                / an.RUNS_FILENAME,
-            )
-        }
-        self.assertAlmostEqual(
-            scaling["tight_x05"]["certified_gap_pct"], 35.6, delta=0.1
-        )
-        self.assertAlmostEqual(
-            scaling["tight_x1"]["certified_gap_pct"], 37.0, delta=0.1
-        )
-        self.assertAlmostEqual(
-            scaling["tight_x2"]["certified_gap_pct"], 52.2, delta=0.1
-        )
-        self.assertAlmostEqual(
-            scaling["tight_x1"]["bound_per_k"], 26929, delta=1
         )
 
 

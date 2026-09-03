@@ -59,7 +59,8 @@ pricing line.
 We build a real-time dual-price policy from the same Lagrangian
 relaxation that gives the problem's upper bound, so every run can
 report a \emph{certified optimality gap}. Three results. The certificate is
-valid for any duals, any permissive discretization, and any surrogate
+valid for any duals, any state discretization with a coverage
+property we prove for the benchmark's solver, and any surrogate
 quality (Theorem~1). In the subcritical fluid regime --- analyzed in a
 grid-aligned hourly idealization of the model --- the policy's same-time
 spatial-gradient rule is exactly fluid complementary slackness, a
@@ -170,7 +171,10 @@ of the certificate:
   (\S\ref{sec:policy}--\ref{sec:certs}).} A dual-price policy whose
   relocation term is a \emph{same-time spatial gradient}, and
   Theorem~\ref{thm:cert}: the certificate is valid for any duals, any
-  permissive discretization, and any surrogate quality. The design
+  state discretization with a coverage property (proved for the
+  benchmark's solver in Appendix~\ref{sec:bucketproof}; an earlier
+  dominance-based rule is shown unsound by counterexample), and any
+  surrogate quality. The design
   rule is \emph{duals price time, gradients price place}; the naive
   rule that charges time twice collapses to 24--30\% of rollout
   across the thirty confirmatory pairs (Lemma~\ref{lem:doublecount},
@@ -341,8 +345,11 @@ deferral rule to future work.
 
 Time runs on $[0, T]$. A fleet of $K$ resources (trucks) has
 states $x_k = (m_k, \tau_k, h_k, d_k) \in \mathcal{X}$: market $m$ in a
-finite set $\mathcal{M}$, next-available time $\tau$, and remaining
-drive/duty clocks $(h, d)$. Requests (load tenders)
+finite set $\mathcal{M}$, next-available time $\tau$, and the
+drive/duty hours \emph{used} since the last renewing rest,
+$0 \leq h \leq 11$ and $0 \leq d \leq 14$ (the solver stores usage, and
+the discretization of \S\ref{sec:lagrangian} rounds usage and time
+down). Requests (load tenders)
 $\ell_1, \dots, \ell_N$ arrive at times $t_1 \leq \dots \leq t_N$
 and are processed in this (index) order; in the idealized hourly model
 of \S\ref{sec:fluid}, all of an epoch's requests share its timestamp
@@ -394,21 +401,23 @@ with per-service reward $r(x, \ell_t) - \lambda_t$, retaining $f$, $S$,
 and renewal. Weak duality gives $\Vstar(\xi) \leq L(\lambda; \xi)$
 pointwise for every $\lambda \geq 0$ (see also the
 information-relaxation view of \citealp{brown2010information}). The benchmark computes $L$ by
-bucketed forward enumeration over an \emph{augmented} per-resource
-system that additionally grants a voluntary timed rest
-(\texttt{RESET\_HOURS} of wall-clock, clocks renewed) before any
-service. The augmentation is what makes the bucketing sound: rounding
-clocks down is \emph{not} permissive on its own, because mandatory
-rests renew clocks --- a higher-usage state can be strictly more
-valuable when service triggers a reset --- but with voluntary rest
-available, a lower-usage state reproduces any renewed-clock state a
-higher-usage plan reaches, at no later a completion time, so the
-snapped bucket corner dominates every state in its bucket. Adding
-actions can only raise per-resource optima, so $L$ computed on the
-augmented system still upper-bounds the true $L$, hence $\Vstar$
-(a one-truck counterexample without the augmentation, and randomized
-one-truck audits against the exact joint DP, ship in the test suite).
-Per-resource solves
+bucketed forward enumeration in which every frontier entry, snapped
+down to its bucket's favorable corner, stands for \emph{every} state
+at least as unfavorable as it (later availability, more clock usage)
+at its market, and an accept generates enough successor corners to
+cover the schedules of all those states
+(Lemma~\ref{lem:cover}, Appendix~\ref{sec:bucketproof}). Validity
+therefore rests on coverage, not on any monotonicity of value in the
+state --- which fails: mandatory rests renew clocks while waits
+shorter than the rest length do not, so a favorably snapped state can
+skip a forced rest, lose its lead waiting for an appointment, and be
+forced to rest later. An earlier revision's corner rule with a
+voluntary-rest action is not a valid bound; Appendix~\ref{sec:bucketproof}
+exhibits a one-load instance on which it certifies $\$0$ against an
+exact $\$1{,}000$. The dual search may use any solver
+(Theorem~\ref{thm:cert} holds for any $\lambda$); every certificate
+reported here is $L(\lambda)$ evaluated by the sound solver at the
+search's incumbent duals. Per-resource solves
 parallelize (standard-library multiprocessing; bit-identical to serial).
 
 \section{The Dual-Price Policy}
@@ -512,10 +521,10 @@ $V^{\pi}(\xi) \leq \Vstar(\xi) \leq L(\lambda; \xi)$, hence the
 observable $\mathrm{gap}(\xi) := L(\lambda; \xi) - V^{\pi}(\xi)$
 upper-bounds the true suboptimality $\Vstar(\xi) - V^{\pi}(\xi)$. The
 certificate remains valid for any $\lambda$, any per-resource
-discretization with the permissive-corner property (each bucket's
-representative dominates every state in its bucket \emph{within the
-solver's --- possibly augmented --- action system}; the benchmark
-achieves this with a voluntary-rest action, \S\ref{sec:lagrangian}),
+discretization with the \emph{coverage} property (every state a
+frontier entry stands for has its successors covered by the entry's
+generated successors; proved for the benchmark's solver in
+Theorem~\ref{thm:frontier}, Appendix~\ref{sec:bucketproof}),
 and any quality of
 $\hat{\lambda}, \widehat{W}$ --- surrogate error degrades policy value
 (widening the reported gap) but never invalidates the certificate.
@@ -542,7 +551,7 @@ and it holds pointwise in $\xi$ for every $\lambda \geq 0$.
 only: an upper bound computed from $(\lambda, \xi)$, and the realized
 value of a feasible policy. Neither ingredient depends on how $\lambda$
 was chosen, on the discretization (which can only enlarge the bound,
-by the permissive-corner property), or on the quality of
+by the coverage property), or on the quality of
 $\hat{\lambda}, \widehat{W}$ (which affect only which feasible policy
 we happen to run).
 \end{proof}
@@ -1244,13 +1253,15 @@ Under the particular random instance sampler of our kernel search,
 micro-instances carry certified gaps in only ${\sim}0.03\%$ of draws
 --- a statement about that sampler, not a general rarity claim ---
 while the benchmark's proportional-scaling experiments show the
-per-resource certificate gap growing with density ($+15$~pp per
-resource from $K = 70$ to $140$ on pair~0). Two diagnostics argue this is not dual under-convergence: the
-slack is robust to two step-size schedules, and extending the $K=140$
-solve to $200$ iterations from a warm start never improves the
-incumbent bound. Still, these are consistency checks on one instance
-per cell, not proof that the growth is relaxation-structural; the
-density-growth characterization is open. There is no contradiction with the $O(1)$ total-gap results of
+\emph{reported} per-resource certificate gap growing with density
+under a common iteration budget ($41.2 \to 48.5\%$ from $K = 70$ to
+$140$, Table~\ref{tab:scaling}). We do not claim this growth is
+relaxation-structural: at that budget the corrected-solver warm
+extensions still lowered every cell's incumbent bound (by
+$1.5$--$8.0\%$ at their final iterations), so larger cells may
+simply be less converged, and the deep-iteration and step-size
+diagnostics we ran predate the solver correction and are not relied
+on. The density-growth characterization is open. There is no contradiction with the $O(1)$ total-gap results of
 \citet{brownzhang2023strength}: those hold for a fixed number of
 state-independent linking constraints, whereas here constraints number
 $\propto K$ with state-dependent participation --- the natural scaling
@@ -1349,11 +1360,12 @@ Wilcoxon signed-rank $p$ & 0.544 & 0.658 & $<0.001$ \\
 
 The policy is rollout-label-free, not free: it requires one offline
 dual solve on a training path --- bound-grade solves (45 iterations)
-of the corrected relaxation average 17--20 hours single-worker at
+average 17--20 hours single-worker at
 benchmark scale, roughly 5--6 hours on four cores at the measured
-$3.05\times$ parallel efficiency (the voluntary-rest action of the
-valid relaxation roughly doubles the pre-correction cost; exact times
-in every bound summary); we have not established a smaller
+$3.05\times$ parallel efficiency (exact times in every bound
+summary), plus one sound evaluation of the incumbent duals for the
+certificate (\path{sound_bound_summary.csv} in each solve
+directory); we have not established a smaller
 policy-grade budget --- but no teacher labels. On the confirmatory
 pairs it beats the rollout-trained surrogate on mild (all three
 tests agree: CI95 $[+2.3, +4.5]$, Wilcoxon $p < 0.001$, sign test
@@ -1460,7 +1472,9 @@ occupies is real, and so is its cost.
 instance's Lagrangian bound --- i.e., each entry is \emph{certified to
 achieve at least} the stated fraction of the hindsight optimum ---
 across ten independently bound-solved instances per scenario
-(45-iteration solves; parentheses are min--max over the ten
+(45-iteration dual searches; each bound is the sound solver's
+evaluation of that search's incumbent duals,
+Appendix~\ref{sec:bucketproof}; parentheses are min--max over the ten
 instances). The certifier is policy-agnostic: the same bound
 certifies the dual policy, the tuned re-solving DLP, and the rollout
 teacher alike.}
@@ -1486,8 +1500,8 @@ locate the true optimum between the policy value and the bound:
 attributing the certificate gap to relaxation slack versus policy
 suboptimality requires exact optima, tractable only at
 small scale (\S\ref{sec:limits} exhibits the mechanism exactly there).
-The scaling diagnosis below argues against one specific alternative
-explanation --- dual under-convergence --- without settling the
+The scaling table below is descriptive: it does not separate
+relaxation slack from residual dual under-convergence, and settles no
 attribution.
 Figure~\ref{fig:evidence} shows the latency--quality frontier (left)
 and the scaling decomposition (right).
@@ -1603,9 +1617,13 @@ aggregated by evaluation stream, $\pm$ are sample standard
 deviations, $n = 3$; driver script in the reproducibility appendix).
 Bounds are extension-matched under a common rule: each cell's
 size-scaled base solve plus one $+15$-iteration warm extension.
-``Certified gap'' still means the \emph{reported} gap at those
-budgets --- deeper convergence could narrow the levels --- so the
-finding is the trend, not the levels.}
+``Certified gap'' means the \emph{reported} gap at those budgets.
+The table is a descriptive, convergence-confounded diagnostic: the
+extensions still lowered every incumbent at their final iterations
+(\S\ref{sec:experiments}), so the levels are loose, and the widening
+with $K$ is consistent with either relaxation-structural growth or
+slower dual convergence at larger $K$ under a fixed iteration
+budget.}
 \label{tab:scaling}
 \small
 \begin{tabular}{rrr}
@@ -1619,15 +1637,22 @@ $K$ & certified gap & policy vs rollout \\
 \end{tabular}
 \end{table}
 
-The certificate gap widens with density under extension-matched
-budgets (Table~\ref{tab:scaling}: each cell's size-scaled base solve
-warm-extended one $+15$-iteration round under a common rule,
-$35.2 \to 41.2 \to 48.5\%$), and the widening replicates across
-seeds with tight dispersion. The extensions still improved most
-incumbents at their final iterations, so deeper convergence could
-narrow the levels further: we read the trend, not the levels, as the
-finding, and the cross-$K$ comparison still partially confounds
-density with residual dual convergence. Cross-fitting
+The reported certificate gap widens with density under
+extension-matched budgets (Table~\ref{tab:scaling}: each cell's
+size-scaled base solve warm-extended one $+15$-iteration round under
+a common rule, $35.2 \to 41.2 \to 48.5\%$), replicating across seeds
+with tight dispersion. We present this as a descriptive diagnostic
+only. The single warm extension still lowered every cell's incumbent
+bound at its final iterations --- by $4.1$--$4.8\%$ ($K = 35$),
+$5.8$--$8.0\%$ ($K = 70$), and $1.5$--$2.1\%$ ($K = 140$) --- so
+none of the cells is converged at the common budget, and a fixed
+iteration count may converge more slowly on larger instances; the
+cross-$K$ comparison therefore confounds density with residual dual
+convergence, and we draw no inference about which drives the trend.
+(A pre-correction 200-iteration $K = 140$ run and a step-size
+comparison are superseded by the solver correction and no longer
+cited.) A converged deep diagnostic with the corrected solver is
+future work. Cross-fitting
 (\path{scripts/run_scaling_crossfit.sh}) turns out to
 be immaterial here --- the in-sample fresh-seed values differ from
 the cross-fitted ones by at most $0.1$~pp --- but the table reports
@@ -1723,7 +1748,7 @@ the independence the theorem requires. Aggregated by evaluation
 stream (three independent streams, each scored under two independent
 training tables), cross-fitted certified fractions are numerically
 close to the in-sample results
-($64.3 \pm 1.1$, $59.3 \pm 3.0$, $45.5 \pm 1.1\%$ at the deepest
+($64.2 \pm 1.1$, $59.3 \pm 3.0$, $45.5 \pm 1.1\%$ at the deepest
 solver budgets), and mean retention vs rollout is $110.4$, $104.5$,
 and $100.2\%$ (three evaluation streams per cell; at $K = 240$ one
 stream's mean falls below rollout) --- consistent with basis
@@ -2362,6 +2387,167 @@ gradient rule loses its complementary-slackness status
 (\S\ref{sec:limits}).
 \end{remark}
 
+\section{Soundness of the Bucketed Per-Resource Solver}
+\label{sec:bucketproof}
+
+This appendix proves that the benchmark's bucketed forward enumeration
+upper-bounds the exact per-resource optimum $V^k_{\lambda}$ for every
+$\lambda$, which is the discretization premise of
+Theorem~\ref{thm:cert}. The argument is an abstract-interpretation
+one: it needs \emph{no} monotonicity of values in the state, which, as
+Remark~\ref{rem:cornerfail} shows, fails.
+
+\paragraph{Setting.} Fix one resource, prices $\lambda$, and its load
+sequence $\ell_1, \dots, \ell_n$ in index order. A state is
+$x = (m, \tau, c)$: market, availability, and clock usage
+$c = (c_1, c_2) \in [0, H_1] \times [0, H_2]$ with $H_1 = 11$ drive and
+$H_2 = 14$ duty hours; $\rho = 10$ is the rest length. Write
+$x' \preceq x$ (``$x'$ is at least as favorable'') iff $m' = m$,
+$\tau' \leq \tau$, and $c' \leq c$ componentwise, and
+$\uparrow\! x := \{y : x \preceq y\}$. Serving $\ell$ from $x$ runs the
+benchmark schedule $S(x, \ell)$, a fixed pipeline of primitives:
+$\tau \leftarrow \max(t_\ell, \tau)$; drive $D(a_{\mathrm{dh}})$; check
+$\tau \leq \bar{p}$; wait $W(\underline{p})$; on-duty $O(s_p)$; drive
+$D(a_{\mathrm{lh}})$; check $\tau \leq \bar{d}$; wait $W(\underline{d})$;
+on-duty $O(s_d)$. As implemented, $D(a)$ repeats: if the capacity
+$\kappa = \min(H_1 - c_1, H_2 - c_2)$ is exhausted, reset
+($\tau \mathrel{+}= \rho$, $c \leftarrow 0$); otherwise advance by
+$g = \min(\text{remaining}, \kappa)$ with $\tau \mathrel{+}= g$,
+$c \mathrel{+}= (g, g)$. $O(a)$ is the same with capacity $H_2 - c_2$
+and $c \mathrel{+}= (0, g)$. $W(g)$ sets $\tau \leftarrow \max(\tau, g)$
+and renews $c \leftarrow 0$ iff the wait $g - \tau$ is at least
+$\rho$. The terminal value depends on $m$ only. The solver keeps, per
+market, entries $(q, v)$ with $q$ snapped down to its bucket corner,
+$\sigma(x) \preceq x$; an entry $(q, v)$ \emph{covers} an exact state
+$y$ with accumulated dualized value $v(y)$ if $q \preceq y$ and
+$v \geq v(y)$.
+
+\begin{lemma}[One work primitive]
+\label{lem:primitive}
+Let $P \in \{D(a), O(a)\}$ with $a > 0$, let $q$ be a state from which
+$P$ performs $r_0$ resets, and let $C = H_1$ for $D$, $C = H_2$ for
+$O$. Put $B(P, q) := \{P(q)\} \cup \{(\tau_q + a + (r_0 + 1)\rho,\, 0,\, 0)\}$,
+the second element present iff $a - r_0 C > 0$. Then for every
+$y \in \uparrow\! q$ there is $b \in B(P, q)$ with $P(y) \in \uparrow\! b$.
+\end{lemma}
+
+\begin{proof}
+Let $\kappa(\cdot)$ denote the capacity at entry to $P$; $y \succeq q$
+gives $\kappa(y) \leq \kappa(q)$. Resets occur when cumulative work
+reaches $\kappa, \kappa + C, \kappa + 2C, \dots$ strictly before $a$,
+so $P$ performs $r(\kappa) = |\{j \geq 0 : \kappa + jC < a\}|$ resets,
+non-increasing in $\kappa$; since $0 \leq \kappa(y) \leq \kappa(q) \leq C$,
+$r(\kappa(y)) \in \{r_0, r_0 + 1\}$. The output has
+$\tau_{\mathrm{out}} = \tau + a + r\rho$; if $r = 0$ the clocks advance
+by the work, and if $r \geq 1$ they equal the work after the last
+reset, $w = a - \kappa - (r - 1)C$, in the dimensions the primitive
+consumes (zero in the other). \emph{Case $r(\kappa(y)) = r_0$:}
+$\tau_y \geq \tau_q$ gives the time order; if $r_0 = 0$ the clocks
+inherit $c_y \geq c_q$; if $r_0 \geq 1$, $w(y) \geq w(q)$ because
+$\kappa(y) \leq \kappa(q)$. Hence $P(y) \in \uparrow\! P(q)$.
+\emph{Case $r(\kappa(y)) = r_0 + 1$:} this needs
+$\kappa(y) < a - r_0 C$, so $a - r_0 C > 0$ and the corner
+$b = (\tau_q + a + (r_0 + 1)\rho, 0, 0)$ lies in $B(P, q)$; then
+$\tau_{\mathrm{out}}(y) = \tau_y + a + (r_0 + 1)\rho \geq \tau_b$ and
+$c_{\mathrm{out}}(y) \geq 0 = c_b$.
+\end{proof}
+
+\begin{lemma}[Waits and checks]
+\label{lem:wait}
+For every $y \in \uparrow\! q$: $W(g)(y) \in \uparrow\! W(g)(q)$; if $y$
+passes a check $\tau \leq \bar{\ell}$ then so does $q$; and the start
+step $\tau \leftarrow \max(t_\ell, \tau)$ preserves $\uparrow$.
+\end{lemma}
+
+\begin{proof}
+Times: $\max(\tau_y, g) \geq \max(\tau_q, g)$. Clocks: if $q$ renews,
+its clocks are $0$; if $q$ does not renew then
+$g - \tau_y \leq g - \tau_q < \rho$, so $y$ does not renew either and
+keeps $c_y \geq c_q$. Checks: $\tau_q \leq \tau_y \leq \bar{\ell}$.
+\end{proof}
+
+\begin{lemma}[Schedule cover]
+\label{lem:cover}
+Let $\mathrm{Cov}(q, \ell)$ be the set obtained by starting from
+$\{q\}$ and applying the pipeline stage by stage: at each work
+primitive replace every branch $b$ by $B(P, b)$; apply waits and the
+start step to every branch; discard a branch that fails a check. Then
+for every $y \in \uparrow\! q$ with $f(y, \ell) = 1$ there is
+$b \in \mathrm{Cov}(q, \ell)$ with $S(y, \ell) \in \uparrow\! b$. At most
+$2^4$ branches arise per load.
+\end{lemma}
+
+\begin{proof}
+Induction over the stages with the invariant ``the exact partial state
+of $y$ lies in $\uparrow\! b$ for some surviving branch $b$'': it holds
+initially ($y \in \uparrow\! q$); Lemma~\ref{lem:primitive} propagates it
+through a work primitive; Lemma~\ref{lem:wait} propagates it through
+the start step and the waits and shows that a branch covering $y$
+survives every check $y$ passes (including the availability gate
+$\tau \leq \bar{p}$ applied before the pipeline). Each of the four
+work primitives at most doubles the branch count.
+\end{proof}
+
+\begin{theorem}[Frontier coverage]
+\label{thm:frontier}
+Process the loads in order with the solver's rules: an accept from
+entry $(q, v)$ inserts $(\sigma(b), v + r_\ell - \lambda_\ell)$ for
+every $b \in \mathrm{Cov}(q, \ell)$; within a bucket the larger value
+is kept; an entry $(q, v)$ is dropped whenever some entry $(q', v')$
+with $q' \preceq q$ and $v' \geq v$ is present. Then before every load
+each reachable exact state is covered by some frontier entry, and the
+solver's output $\max_{(q,v)} v + \Phi(m_q)$ is at least the exact
+optimal dualized value of the resource.
+\end{theorem}
+
+\begin{proof}
+Initially the only reachable state is $x_0$, covered by
+$(\sigma(x_0), 0)$. Suppose coverage holds before $\ell_i$ and let $y$
+be reachable then, covered by $(q, v)$. Its reject successor is $y$
+itself, still covered by $(q, v)$ unless that entry was dropped, in
+which case the entry $(q', v')$ that caused the drop covers $y$
+($q' \preceq q \preceq y$, $v' \geq v \geq v(y)$). Its accept successor
+$S(y, \ell_i)$, with value $v(y) + r_i - \lambda_i$, is covered by
+Lemma~\ref{lem:cover}: some $b \in \mathrm{Cov}(q, \ell_i)$ has
+$b \preceq S(y, \ell_i)$, the solver inserts $(\sigma(b), v + r_i - \lambda_i)$
+with $\sigma(b) \preceq b$, and within-bucket merging and pruning can
+only replace this entry by one with a state at least as favorable and
+a value at least as large. Coverage therefore holds before $\ell_{i+1}$,
+and after the last load the optimal exact terminal state is covered by
+an entry of at least its value at the same market, so the same
+terminal credit applies.
+\end{proof}
+
+\begin{remark}[Why a dominance argument is unavailable]
+\label{rem:cornerfail}
+An earlier revision kept only $P(q)$ and a rest-first alternative
+(a voluntary $\rho$-hour rest before service) and argued that the
+snapped corner dominates its bucket. The value is not monotone in the
+state, even with voluntary rest: a favorably snapped state can skip a
+forced rest, spend its $\rho$-hour lead waiting for an appointment
+window (waits shorter than $\rho$ do not renew clocks), and then be
+forced to rest \emph{later} than the exact state it stands for. A
+randomized search produced a one-load instance on which that rule
+certifies $\$0$ while the exact resource earns the load's $\$1{,}000$:
+the exact truck is forced to rest $1.5$~h into its deadhead and
+arrives fresh; the snapped corner completes the deadhead, waits
+$9.76$~h, exhausts during pickup service and misses the delivery
+window, and the rest-first alternative lacks drive hours for the
+linehaul. The instance is a regression test
+(\path{tests/test_v04_methods.py}, \texttt{BoundValidityTests}),
+alongside a mechanized check of Lemma~\ref{lem:cover} on random
+state pairs and randomized comparisons of the sound solver against
+the exact one-truck DP. Because Theorem~\ref{thm:cert} holds for
+every $\lambda$, the dual search may use any solver to choose
+$\lambda$; every certificate in this paper is $L(\lambda)$ evaluated
+by the sound solver (\path{scripts/certify_bound.py}) at the search's
+incumbent duals. On the 59 certified benchmark instances that
+evaluation coincides with the search's value to the cent on 55 and
+exceeds it on four (by $\$134$ to $\$3{,}397$, at most $0.29\%$), so
+the earlier rule's under-certification was real but small on this
+benchmark; no reported statistic moved by more than $0.1$~pp.
+\end{remark}
+
 \section{Reproducibility}
 \label{sec:repro}
 
@@ -2402,7 +2588,12 @@ solves with warm-start extensions, exact micro decompositions);
 their statistics regenerate via
 \path{scripts/analyze_trackb_results.py}, and the headline tables via
 \path{scripts/analyze_v04_results.py} pointed at the confirmatory
-directories plus \path{scripts/analyze_confirmation.py} (the
+directories plus \path{scripts/analyze_confirmation.py}; every
+certificate divides by the sound-solver evaluation of the search's
+incumbent duals (\path{scripts/certify_bound.py} writes
+\path{sound_bound_summary.csv} beside each solve, and
+\path{scripts/certified_bound.py} refuses to fall back to the search's
+own value) (the
 pre-registration manifest, its amendment, and the locked run wrapper
 are in \path{benchmark_runs/v04_dev/confirm60_prereg/}; the
 confirmatory artifacts in \path{benchmark_runs/v04_dev/confirm60/}). The

@@ -41,7 +41,4 @@
 - rollout_teacher: certified >= 63.6% of hindsight optimum (61.1--65.2)
 - mean bound-solve time: 1177 minutes
 
-## Table 3 inputs: proportional scaling (tight, pair 0)
-- tight_x05 (K=35): bound/K $26,780, policy/K $17,242, policy vs rollout 116.6%, certified gap 35.6%
-- tight_x1 (K=70): bound/K $26,929, policy/K $16,970, policy vs rollout 93.3%, certified gap 37.0%
-- tight_x2 (K=140): bound/K $31,585, policy/K $15,104, policy vs rollout 96.9%, certified gap 52.2%
+## Table 3 inputs: see scripts/aggregate_scaling_crossfit.py (cross-fitted, sound-certified scaling cells)

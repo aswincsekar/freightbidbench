@@ -23,8 +23,13 @@ from __future__ import annotations
 
 import csv
 import statistics
+import sys
 from collections import defaultdict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import certified_bound  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACKB = ROOT / "benchmark_runs" / "trackb"
@@ -77,10 +82,8 @@ def section_scaling() -> None:
     for d in sorted(fix_scaling.iterdir()):
         if d.name.endswith("_ext1") or not (d / BOUND).exists():
             continue
-        best = min(
-            float(next(iter(read(p / BOUND)))["best_bound"])
-            for p in (d, fix_scaling / (d.name + "_ext1"))
-            if (p / BOUND).exists()
+        best = certified_bound.best_certified_bound(
+            [d, fix_scaling / (d.name + "_ext1")]
         )
         rec = {"best_bound": best}
         rows = read(TRACKB / "scaling_eval" / d.name / RUNS)
@@ -125,15 +128,13 @@ def section_scaling_crossfit() -> None:
 
 
 def best_bound_across_budgets(name: str) -> dict[str, float]:
-    """Bound per solver budget for a subcritical cell: base, _ext, _ext2."""
+    """Sound-certified bound per solver budget for a subcritical cell:
+    base, _ext, _ext2 (each certified at its own incumbent duals)."""
     out: dict[str, float] = {}
     for suffix in ("", "_ext", "_ext2"):
-        summ = (
-            ROOT / "benchmark_runs" / "v041_fix" / "subcritical"
-            / (name + suffix) / BOUND
-        )
-        if summ.exists():
-            out[suffix or "base"] = float(next(iter(read(summ)))["best_bound"])
+        d = ROOT / "benchmark_runs" / "v041_fix" / "subcritical" / (name + suffix)
+        if (d / BOUND).exists():
+            out[suffix or "base"] = certified_bound.read_certified_bound(d)
     return out
 
 
@@ -319,11 +320,9 @@ def section_dlp_certs() -> None:
         }
         fracs = []
         for pair in range(1, 11):
-            summ = (
+            bound = certified_bound.read_certified_bound(
                 certs / f"{scen}_{20260507 + 2 * pair}"
-                / "lagrangian_bound_summary.csv"
             )
-            bound = float(next(iter(read(summ)))["best_bound"])
             fracs.append(100 * dlp[pair] / bound)
         print(
             f"  {scen}: dlp {tuned_cadence(scen):g}h certified >="
